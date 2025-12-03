@@ -1,0 +1,52 @@
+---
+title: End-of-chapter quiz
+url: https://huggingface.co/learn/llm-course/chapter9/9
+course: llm-course
+chapter: 9. Building and sharing demos
+chapter_id: chapter9/9
+---
+# End-of-chapter quiz
+
+   
+Let’s test what you learned in this chapter!
+ 
+
+### 1. What can you use Gradio to do?
+
+  Create a demo for your machine learning model  Share your machine learning model with others  Debug your model  Train your model   
+
+### 2. Gradio ONLY works with PyTorch models
+
+  True  False   
+
+### 3. Where can you launch a Gradio demo from?
+
+  Standard python IDEs  Google Colab notebooks  Jupyter notebooks   
+
+### 4. Gradio is designed primarily for NLP models
+
+  True  False   
+
+### 5. Which of the following features are supported by Gradio?
+
+  Multiple inputs and outputs  State for data persistance  Username and passwords authentication  Automatic analytics for who uses your gradio demo  Loading a model from Hugging Face's model hub or Hugging Face Spaces   
+
+### 6. Which of the following are valid ways of loading a Hugging Face model from Hub or Spaces?
+
+  gr.Interface.load('huggingface/{user}/{model_name}')  gr.Interface.load('model/{user}/{model_name}')  gr.Interface.load('demos/{user}/{model_name}')  gr.Interface.load('spaces/{user}/{model_name}')   
+
+### 7. Select all the steps necessary for adding state to your Gradio interface
+
+  Pass in an extra parameter into your prediction function, which represents the state of the interface.  At the end of the prediction function, return the updated value of the state as an extra return value.  Add the state input and state output components when creating your Interface   
+
+### 8. Which of the following are components included in the Gradio library?
+
+  Textbox.  Graph.  Image.  Audio.   
+
+### 9. What does Gradio Blocks allow you to do?
+
+  Combine multiple demos into one web app  Assign event triggers such as clicked/changed/etc to `Blocks` components  Automatically determine which `Blocks` component should be interactive vs. static  Create multi-step demos; meaning allowing you to reuse the output of one component as the input to the next   
+
+### 10. You can share a public link to a Blocks demo and host a Blocks demo on Hugging Face spaces.
+
+  True  False

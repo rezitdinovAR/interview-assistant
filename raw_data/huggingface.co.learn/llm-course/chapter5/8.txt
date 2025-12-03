@@ -1,0 +1,69 @@
+---
+title: End-of-chapter quiz
+url: https://huggingface.co/learn/llm-course/chapter5/8
+course: llm-course
+chapter: 5. The 🤗 Datasets library
+chapter_id: chapter5/8
+---
+# End-of-chapter quiz
+
+   
+This chapter covered a lot of ground! Don’t worry if you didn’t grasp all the details; the next chapters will help you understand how things work under the hood.
+ 
+Before moving on, though, let’s test what you learned in this chapter.
+ 
+
+### 1. The load_dataset() function in 🤗 Datasets allows you to load a dataset from which of the following locations?
+
+  Locally, e.g. on your laptop  The Hugging Face Hub  A remote server   
+
+### 2. Suppose you load one of the GLUE tasks as follows:
+
+  
+```
+from datasets import load_dataset
+
+dataset = load_dataset("glue", "mrpc", split="train")
+```
+ 
+Which of the following commands will produce a random sample of 50 elements from `dataset`?
+  `dataset.sample(50)`  `dataset.shuffle().select(range(50))`  `dataset.select(range(50)).shuffle()`   
+
+### 3. Suppose you have a dataset about household pets called pets_dataset , which has a name column that denotes the name of each pet. Which of the following approaches would allow you to filter the dataset for all pets whose names start with the letter “L”?
+
+  `pets_dataset.filter(lambda x : x['name'].startswith('L'))`  `pets_dataset.filter(lambda x['name'].startswith('L'))`  Create a function like `def filter_names(x): return x['name'].startswith('L')` and run `pets_dataset.filter(filter_names)`.   
+
+### 4. What is memory mapping?
+
+  A mapping between CPU and GPU RAM  A mapping between RAM and filesystem storage  A mapping between two files in the 🤗 Datasets cache   
+
+### 5. Which of the following are the main benefits of memory mapping?
+
+  Accessing memory-mapped files is faster than reading from or writing to disk.  Applications can access segments of data in an extremely large file without having to read the whole file into RAM first.  It consumes less energy, so your battery lasts longer.   
+
+### 6. Why does the following code fail?
+
+  
+```
+from datasets import load_dataset
+
+dataset = load_dataset("allocine", streaming=True, split="train")
+dataset[0]
+```
+  It tries to stream a dataset that's too large to fit in RAM.  It tries to access an `IterableDataset`.  The `allocine` dataset doesn't have a `train` split.   
+
+### 7. Which of the following are the main benefits of creating a dataset card?
+
+  It provides information about the intended use and supported tasks of the dataset so others in the community can make an informed decision about using it.  It helps draw attention to the biases that are present in a corpus.  It improves the chances that others in the community will use my dataset.   
+
+### 8. What is semantic search?
+
+  A way to search for exact matches between the words in a query and the documents in a corpus  A way to search for matching documents by understanding the contextual meaning of a query  A way to improve search accuracy   
+
+### 9. For asymmetric semantic search, you usually have:
+
+  A short query and a longer paragraph that answers the query  Queries and paragraphs that are of about the same length  A long query and a shorter paragraph that answers the query   
+
+### 10. Can I use 🤗 Datasets to load data for use in other domains, like speech processing?
+
+  No  Yes

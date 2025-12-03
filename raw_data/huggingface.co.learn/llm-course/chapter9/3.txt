@@ -1,0 +1,174 @@
+---
+title: Understanding the Interface class
+url: https://huggingface.co/learn/llm-course/chapter9/3
+course: llm-course
+chapter: 9. Building and sharing demos
+chapter_id: chapter9/3
+---
+# Understanding the Interface class
+
+    
+In this section, we will take a closer look at the `Interface` class, and understand the
+main parameters used to create one.
+ 
+
+## How to create an Interface
+
+ 
+You’ll notice that the `Interface` class has 3 required parameters:
+ 
+`Interface(fn, inputs, outputs, ...)`
+ 
+These parameters are:
+ 
+- `fn`: the prediction function that is wrapped by the Gradio interface. This function can take one or more parameters and return one or more values
+- `inputs`: the input component type(s). Gradio provides many pre-built components such as`"image"` or `"mic"`.
+- `outputs`: the output component type(s). Again, Gradio provides many pre-built components e.g. `"image"` or `"label"`.
+ 
+For a complete list of components, [see the Gradio docs](https://gradio.app/docs). Each pre-built component can be customized by instantiating the class corresponding to the component.
+ 
+For example, as we saw in the [previous section](/course/chapter9/2),
+instead of passing in `"textbox"` to the `inputs` parameter, you can pass in a `Textbox(lines=7, label="Prompt")` component to create a textbox with 7 lines and a label.
+ 
+Let’s take a look at another example, this time with an `Audio` component.
+ 
+
+## A simple example with audio
+
+ 
+As mentioned earlier, Gradio provides many different inputs and outputs.
+So let’s build an `Interface` that works with audio.
+ 
+In this example, we’ll build an audio-to-audio function that takes an
+audio file and simply reverses it.
+ 
+We will use for the input the `Audio` component. When using the `Audio` component,
+you can specify whether you want the `source` of the audio to be a file that the user
+uploads or a microphone that the user records their voice with. In this case, let’s
+set it to a `"microphone"`. Just for fun, we’ll add a label to our `Audio` that says
+“Speak here…“.
+ 
+In addition, we’d like to receive the audio as a numpy array so that we can easily
+“reverse” it. So we’ll set the `"type"` to be `"numpy"`, which passes the input
+data as a tuple of (`sample_rate`, `data`) into our function.
+ 
+We will also use the `Audio` output component which can automatically
+render a tuple with a sample rate and numpy array of data as a playable audio file.
+In this case, we do not need to do any customization, so we will use the string
+shortcut `"audio"`.
+  
+```
+import numpy as np
+import gradio as gr
+
+def reverse_audio(audio):
+    sr, data = audio
+    reversed_audio = (sr, np.flipud(data))
+    return reversed_audio
+
+mic = gr.Audio(source="microphone", type="numpy", label="Speak here...")
+gr.Interface(reverse_audio, mic, "audio").launch()
+```
+ 
+The code above will produce an interface like the one below (if your browser doesn’t
+ask you for microphone permissions, [open the demo in  a separate tab](https://huggingface.co/spaces/course-demos/audio-reverse).)
+  
+You should now be able to record your voice and hear yourself speaking in reverse - spooky 👻!
+ 
+
+## Handling multiple inputs and outputs
+
+ 
+Let’s say we had a more complicated function, with multiple inputs and outputs.
+In the example below, we have a function that takes a dropdown index, a slider value, and number,
+and returns an audio sample of a musical tone.
+ 
+Take a look how we pass a list of input and output components,
+and see if you can follow along what’s happening.
+ 
+The key here is that when you pass:
+ 
+- a list of input components, each component corresponds to a parameter in order.
+- a list of output coponents, each component corresponds to a returned value.
+ 
+The code snippet below shows how three input components line up with the three arguments of the `generate_tone()` function:
+  
+```
+import numpy as np
+import gradio as gr
+
+notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+
+def generate_tone(note, octave, duration):
+    sr = 48000
+    a4_freq, tones_from_a4 = 440, 12 * (octave - 4) + (note - 9)
+    frequency = a4_freq * 2 ** (tones_from_a4 / 12)
+    duration = int(duration)
+    audio = np.linspace(0, duration, duration * sr)
+    audio = (20000 * np.sin(audio * (2 * np.pi * frequency))).astype(np.int16)
+    return (sr, audio)
+
+gr.Interface(
+    generate_tone,
+    [
+        gr.Dropdown(notes, type="index"),
+        gr.Slider(minimum=4, maximum=6, step=1),
+        gr.Number(value=1, label="Duration in seconds"),
+    ],
+    "audio",
+).launch()
+```
+  
+
+### The launch() method
+
+ 
+So far, we have used the `launch()` method to launch the interface, but we
+haven’t really discussed what it does.
+ 
+By default, the `launch()` method will launch the demo in a web server that
+is running locally. If you are running your code in a Jupyter or Colab notebook, then
+Gradio will embed the demo GUI in the notebook so you can easily use it.
+ 
+You can customize the behavior of `launch()` through different parameters:
+ 
+- `inline` - whether to display the interface inline on Python notebooks.
+- `inbrowser` - whether to automatically launch the interface in a new tab on the default browser.
+- `share` - whether to create a publicly shareable link from your computer for the interface. Kind of like a Google Drive link!
+ 
+We’ll cover the `share` parameter in a lot more detail in the next section!
+ 
+
+## ✏️ Let’s apply it!
+
+ 
+Let’s build an interface that allows you to demo a **speech-recognition** model.
+To make it interesting, we will accept *either* a mic input or an uploaded file.
+ 
+As usual, we’ll load our speech recognition model using the `pipeline()` function from 🤗 Transformers.
+If you need a quick refresher, you can go back to [that section in Chapter 1](/course/chapter1/3).   Next, we’ll implement a `transcribe_audio()` function that processes the audio and returns the transcription. Finally, we’ll wrap this function in an `Interface` with the `Audio` components for the inputs and just text for the output. Altogether, the code for this application is the following:
+  
+```
+from transformers import pipeline
+import gradio as gr
+
+model = pipeline("automatic-speech-recognition")
+
+def transcribe_audio(audio):
+    transcription = model(audio)["text"]
+    return transcription
+
+gr.Interface(
+    fn=transcribe_audio,
+    inputs=gr.Audio(type="filepath"),
+    outputs="text",
+).launch()
+```
+ 
+If your browser doesn’t ask you for microphone permissions, [open the demo in a separate tab](https://huggingface.co/spaces/course-demos/audio-reverse).
+  
+That’s it! You can now use this interface to transcribe audio. Notice here that
+by passing in the `optional` parameter as `True`, we allow the user to either
+provide a microphone or an audio file (or neither, but that will return an error message).
+ 
+Keep going to see how to share your interface with others!

@@ -1,0 +1,45 @@
+---
+title: Quiz: Evaluating AI Agents
+url: https://huggingface.co/learn/agents-course/bonus-unit2/quiz
+course: agents-course
+chapter: Bonus Unit 2. Agent Observability and Evaluation
+chapter_id: bonus-unit2/quiz
+---
+# Quiz: Evaluating AI Agents
+
+ 
+Let’s assess your understanding of the agent tracing and evaluation concepts covered in this bonus unit.
+ 
+This quiz is optional and ungraded.
+ 
+
+### Q1: What does observability in AI agents primarily refer to?
+
+ 
+Which statement accurately describes the purpose of observability for AI agents?
+  It involves tracking internal operations through logs, metrics, and spans to understand agent behavior.  It is solely focused on reducing the financial cost of running the agent.  It refers only to the external appearance and UI of the agent.  It is concerned with coding style and code aesthetics only.   
+
+### Q2: Which of the following is NOT a common metric monitored in agent observability?
+
+ 
+Select the metric that does not typically fall under the observability umbrella.
+  Latency  Cost per Agent Run  User Feedback and Ratings  Lines of Code of the Agent   
+
+### Q3: What best describes offline evaluation of an AI agent?
+
+ 
+Determine the statement that correctly captures the essence of offline evaluation.
+  Evaluating the agent using real user interactions in a live environment.  Assessing agent performance using curated datasets with known ground truth.  Monitoring the agent's internal logs in real-time.  Running the agent without any evaluation metrics.   
+
+### Q4: Which advantage does online evaluation of agents offer?
+
+ 
+Pick the statement that best reflects the benefit of online evaluation.
+  It provides controlled testing scenarios using pre-defined datasets.  It captures live user interactions and real-world performance data.  It eliminates the need for any offline testing and benchmarks.  It solely focuses on reducing the computational cost of the agent.   
+
+### Q5: What role does OpenTelemetry play in AI agent observability and evaluation?
+
+ 
+Which statement best describes the role of OpenTelemetry in monitoring AI agents?
+  It provides a standardized framework to instrument code, enabling the collection of traces, metrics, and logs for observability.  It acts as a replacement for manual debugging by automatically fixing code issues.  It primarily serves as a database for storing historical logs without real-time capabilities.  It is used to optimize the computational performance of the AI agent by automatically tuning model parameters.   
+Congratulations on completing this quiz! 🎉 If you missed any questions, consider reviewing the content of this bonus unit for a deeper understanding. If you did well, you’re ready to explore more advanced topics in agent observability and evaluation!

@@ -1,0 +1,7 @@
+---
+title: huggingface.co
+url: https://huggingface.co/learn/llm-course/chapter4/4
+course: llm-course
+chapter: 4. Sharing models and tokenizers
+chapter_id: chapter4/4
+---

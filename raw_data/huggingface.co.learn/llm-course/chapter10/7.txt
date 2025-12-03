@@ -1,0 +1,44 @@
+---
+title: End-of-chapter quiz
+url: https://huggingface.co/learn/llm-course/chapter10/7
+course: llm-course
+chapter: 10. Curate high-quality datasets
+chapter_id: chapter10/7
+---
+# End-of-chapter quiz
+
+   
+Let’s test what you learned in this chapter!
+ 
+
+### 1. What can you use Argilla for?
+
+  Turn unstructured data into structured data for NLP tasks  Scrap a public website to build a dataset  Improve the quality of an existing dataset  Adapt an existing dataset to your own use case  Train your model  Generate synthetic datasets   
+
+### 2. Argilla ONLY works in the Hugging Face Spaces and with Hugging Face Datasets.
+
+  True  False   
+
+### 3. You need a Hugging Face token to connect the Python SDK to your Argilla server.
+
+  True  False   
+
+### 4. What are fields in Argilla? How many fields can you use?
+
+  Fields show the data that we are annotating. All this information needs to be collected in a single field.  Fields show the data that we are annotating. All this information can be spread across multiple fields.  Fields contain the metadata of the records. You can use as many as you need.   
+
+### 5. What’s the best type of question for a token classification task?
+
+  A SpanQuestion  A LabelQuestion  A TextQuestion  None of the above   
+
+### 6. What is the purpose of the “Save as draft” button?
+
+  Submit your responses  Save your responses without submitting them  Discard a record   
+
+### 7. Argilla does not offer suggested labels automatically, you need to provide that data yourself.
+
+  True  False   
+
+### 8. Select all the necessary steps to export an Argilla dataset in full to the Hub:
+
+  You need to be connected to your Argilla server: `client= rg.Argilla(api_url='...', api_key='...')`  Import the dataset from the hub: `dataset = rg.Dataset.from_hub(repo_id='argilla/ag_news_annotated')`  Load the dataset: `dataset = client.datasets(name='my_dataset')`  Convert the Argilla dataset into a Datasets dataset: `dataset = dataset.to_datasets()`  Use the to_hub method to export the dataset: `dataset.to_hub(repo_id='my_username/dataset_name')`

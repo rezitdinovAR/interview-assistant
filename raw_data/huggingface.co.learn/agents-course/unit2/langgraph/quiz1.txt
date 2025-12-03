@@ -1,0 +1,45 @@
+---
+title: Test Your Understanding of LangGraph
+url: https://huggingface.co/learn/agents-course/unit2/langgraph/quiz1
+course: agents-course
+chapter: Unit 2.3 The LangGraph framework
+chapter_id: unit2/langgraph/quiz1
+---
+# Test Your Understanding of LangGraph
+
+ 
+Let’s test your understanding of `LangGraph` with a quick quiz! This will help reinforce the key concepts we’ve covered so far.
+ 
+This is an optional quiz and it’s not graded.
+ 
+
+### Q1: What is the primary purpose of LangGraph?
+
+ 
+Which statement best describes what LangGraph is designed for?
+  A framework to build control flows for applications containing LLMs  A library that provides interfaces to interact with different LLM models  An Agent library for tool calling    
+
+### Q2: In the context of the “Control vs Freedom” trade-off, where does LangGraph stand?
+
+ 
+Which statement best characterizes LangGraph’s approach to agent design?
+  LangGraph maximizes freedom, allowing LLMs to make all decisions independently  LangGraph provides strong control over execution flow while still leveraging LLM capabilities for decision making    
+
+### Q3: What role does State play in LangGraph?
+
+ 
+Choose the most accurate description of State in LangGraph.
+  State is the latest generation from the LLM  State is only used to track errors during execution  State represents the information that flows through your agent application  State is only relevant when working with external APIs   
+
+### Q4: What is a Conditional Edge in LangGraph?
+
+ 
+Select the most accurate description.
+  An edge that determines which node to execute next based on evaluating a condition  An edge that is only followed when a specific condition occurs  An edge that requires user confirmation before proceeding    
+
+### Q5: How does LangGraph help address the hallucination problem in LLMs?
+
+ 
+Choose the best answer.
+  LangGraph eliminates hallucinations entirely by limiting LLM responses  LangGraph provides structured workflows that can validate and verify LLM outputs  LangGraph has no effect on hallucinations   
+Congratulations on completing the quiz! 🎉 If you missed any questions, consider reviewing the previous sections to strengthen your understanding. Next, we’ll explore more advanced features of LangGraph and see how to build more complex agent workflows.

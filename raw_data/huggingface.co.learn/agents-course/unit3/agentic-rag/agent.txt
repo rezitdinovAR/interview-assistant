@@ -1,0 +1,217 @@
+---
+title: Creating Your Gala Agent
+url: https://huggingface.co/learn/agents-course/unit3/agentic-rag/agent
+course: agents-course
+chapter: Unit 3. Use Case for Agentic RAG
+chapter_id: unit3/agentic-rag/agent
+---
+# Creating Your Gala Agent
+
+ 
+Now that we’ve built all the necessary components for Alfred, it’s time to bring everything together into a complete agent that can help host our extravagant gala.
+ 
+In this section, we’ll combine the guest information retrieval, web search, weather information, and Hub stats tools into a single powerful agent.
+ 
+
+## Assembling Alfred: The Complete Agent
+
+ 
+Instead of reimplementing all the tools we’ve created in previous sections, we’ll import them from their respective modules which we saved in the `tools.py` and `retriever.py` files.
+ 
+> If you haven’t implemented the tools yet, go back to thetoolsandretrieversections to implement them, and add them to thetools.pyandretriever.pyfiles.
+ 
+Let’s import the necessary libraries and tools from the previous sections:
+ smolagents llama-index langgraph   
+```
+# Import necessary libraries
+import random
+from smolagents import CodeAgent, InferenceClientModel
+
+# Import our custom tools from their modules
+from tools import DuckDuckGoSearchTool, WeatherInfoTool, HubStatsTool
+from retriever import load_guest_dataset
+```
+ 
+Now, let’s combine all these tools into a single agent:
+  
+```
+# Initialize the Hugging Face model
+model = InferenceClientModel()
+
+# Initialize the web search tool
+search_tool = DuckDuckGoSearchTool()
+
+# Initialize the weather tool
+weather_info_tool = WeatherInfoTool()
+
+# Initialize the Hub stats tool
+hub_stats_tool = HubStatsTool()
+
+# Load the guest dataset and initialize the guest info tool
+guest_info_tool = load_guest_dataset()
+
+# Create Alfred with all the tools
+alfred = CodeAgent(
+    tools=[guest_info_tool, weather_info_tool, hub_stats_tool, search_tool], 
+    model=model,
+    add_base_tools=True,  # Add any additional base tools
+    planning_interval=3   # Enable planning every 3 steps
+)
+```
+  
+Your agent is now ready to use!
+ 
+
+## Using Alfred: End-to-End Examples
+
+ 
+Now that Alfred is fully equipped with all the necessary tools, let’s see how he can help with various tasks during the gala.
+ 
+
+### Example 1: Finding Guest Information
+
+ 
+Let’s see how Alfred can help us with our guest information.
+ smolagents llama-index langgraph   
+```
+query = "Tell me about 'Lady Ada Lovelace'"
+response = alfred.run(query)
+
+print("🎩 Alfred's Response:")
+print(response)
+```
+ 
+Expected output:
+  
+```
+🎩 Alfred's Response:
+Based on the information I retrieved, Lady Ada Lovelace is an esteemed mathematician and friend. She is renowned for her pioneering work in mathematics and computing, often celebrated as the first computer programmer due to her work on Charles Babbage's Analytical Engine. Her email address is ada.lovelace@example.com.
+```
+  
+
+### Example 2: Checking the Weather for Fireworks
+
+ 
+Let’s see how Alfred can help us with the weather.
+ smolagents llama-index langgraph   
+```
+query = "What's the weather like in Paris tonight? Will it be suitable for our fireworks display?"
+response = alfred.run(query)
+
+print("🎩 Alfred's Response:")
+print(response)
+```
+ 
+Expected output (will vary due to randomness):
+  
+```
+🎩 Alfred's Response:
+I've checked the weather in Paris for you. Currently, it's clear with a temperature of 25°C. These conditions are perfect for the fireworks display tonight. The clear skies will provide excellent visibility for the spectacular show, and the comfortable temperature will ensure the guests can enjoy the outdoor event without discomfort.
+```
+  
+
+### Example 3: Impressing AI Researchers
+
+ 
+Let’s see how Alfred can help us impress AI researchers.
+ smolagents llama-index langgraph   
+```
+query = "One of our guests is from Qwen. What can you tell me about their most popular model?"
+response = alfred.run(query)
+
+print("🎩 Alfred's Response:")
+print(response)
+```
+ 
+Expected output:
+  
+```
+🎩 Alfred's Response:
+The most popular Qwen model is Qwen/Qwen2.5-VL-7B-Instruct with 3,313,345 downloads.
+```
+  
+
+### Example 4: Combining Multiple Tools
+
+ 
+Let’s see how Alfred can help us prepare for a conversation with Dr. Nikola Tesla.
+ smolagents llama-index langgraph   
+```
+query = "I need to speak with Dr. Nikola Tesla about recent advancements in wireless energy. Can you help me prepare for this conversation?"
+response = alfred.run(query)
+
+print("🎩 Alfred's Response:")
+print(response)
+```
+ 
+Expected output:
+  
+```
+🎩 Alfred's Response:
+I've gathered information to help you prepare for your conversation with Dr. Nikola Tesla.
+
+Guest Information:
+Name: Dr. Nikola Tesla
+Relation: old friend from university days
+Description: Dr. Nikola Tesla is an old friend from your university days. He's recently patented a new wireless energy transmission system and would be delighted to discuss it with you. Just remember he's passionate about pigeons, so that might make for good small talk.
+Email: nikola.tesla@gmail.com
+
+Recent Advancements in Wireless Energy:
+Based on my web search, here are some recent developments in wireless energy transmission:
+1. Researchers have made progress in long-range wireless power transmission using focused electromagnetic waves
+2. Several companies are developing resonant inductive coupling technologies for consumer electronics
+3. There are new applications in electric vehicle charging without physical connections
+
+Conversation Starters:
+1. "I'd love to hear about your new patent on wireless energy transmission. How does it compare to your original concepts from our university days?"
+2. "Have you seen the recent developments in resonant inductive coupling for consumer electronics? What do you think of their approach?"
+3. "How are your pigeons doing? I remember your fascination with them."
+
+This should give you plenty to discuss with Dr. Tesla while demonstrating your knowledge of his interests and recent developments in his field.
+```
+  
+
+## Advanced Features: Conversation Memory
+
+ 
+To make Alfred even more helpful during the gala, we can enable conversation memory so he remembers previous interactions:
+ smolagents llama-index langgraph   
+```
+# Create Alfred with conversation memory
+alfred_with_memory = CodeAgent(
+    tools=[guest_info_tool, weather_info_tool, hub_stats_tool, search_tool], 
+    model=model,
+    add_base_tools=True,
+    planning_interval=3
+)
+
+# First interaction
+response1 = alfred_with_memory.run("Tell me about Lady Ada Lovelace.")
+print("🎩 Alfred's First Response:")
+print(response1)
+
+# Second interaction (referencing the first)
+response2 = alfred_with_memory.run("What projects is she currently working on?", reset=False)
+print("🎩 Alfred's Second Response:")
+print(response2)
+```
+  
+Notice that none of these three agent approaches directly couple memory with the agent. Is there a specific reason for this design choice 🧐?
+ 
+- smolagents: Memory is not preserved across different execution runs, you must explicitly state it using `reset=False`.
+- LlamaIndex: Requires explicitly adding a context object for memory management within a run.
+- LangGraph: Offers options to retrieve previous messages or utilize a dedicated [MemorySaver](https://langchain-ai.github.io/langgraph/tutorials/introduction/#part-3-adding-memory-to-the-chatbot) component.
+ 
+
+## Conclusion
+
+ 
+Congratulations! You’ve successfully built Alfred, a sophisticated agent equipped with multiple tools to help host the most extravagant gala of the century. Alfred can now:
+ 
+1. Retrieve detailed information about guests
+2. Check weather conditions for planning outdoor activities
+3. Provide insights about influential AI builders and their models
+4. Search the web for the latest information
+5. Maintain conversation context with memory
+ 
+With these capabilities, Alfred is ready to ensure your gala is a resounding success, impressing guests with personalized attention and up-to-date information.

@@ -1,0 +1,46 @@
+---
+title: End-of-chapter quiz
+url: https://huggingface.co/learn/llm-course/chapter4/6
+course: llm-course
+chapter: 4. Sharing models and tokenizers
+chapter_id: chapter4/6
+---
+[Pytorch](?fw=pt)[TensorFlow](?fw=tf)  
+
+# End-of-chapter quiz
+
+   
+Let’s test what you learned in this chapter!
+ 
+
+### 1. What are models on the Hub limited to?
+
+  Models from the 🤗 Transformers library.  All models with a similar interface to 🤗 Transformers.  There are no limits.  Models that are in some way related to NLP.   
+
+### 2. How can you manage models on the Hub?
+
+  Through a GCP account.  Through peer-to-peer distribution.  Through git and git-lfs.   
+
+### 3. What can you do using the Hugging Face Hub web interface?
+
+  Fork an existing repository.  Create a new model repository.  Manage and edit files.  Upload files.  See diffs across versions.   
+
+### 4. What is a model card?
+
+  A rough description of the model, therefore less important than the model and tokenizer files.  A way to ensure reproducibility, reusability, and fairness.  A Python file that can be run to retrieve information about the model.   
+
+### 5. Which of these objects of the 🤗 Transformers library can be directly shared on the Hub with push_to_hub() ?
+
+  A tokenizer  A model configuration  A model  A Trainer   
+
+### 6. What is the first step when using the push_to_hub() method or the CLI tools?
+
+  Log in on the website.  Run 'huggingface-cli login' in a terminal.  Run 'notebook_login()' in a notebook.   
+
+### 7. You’re using a model and a tokenizer — how can you upload them to the Hub?
+
+  By calling the push_to_hub method directly on the model and the tokenizer.  Within the Python runtime, by wrapping them in a `huggingface_hub` utility.  By saving them to disk and calling `transformers-cli upload-model`   
+
+### 8. Which git operations can you do with the Repository class?
+
+  A commit.  A pull  A push  A merge

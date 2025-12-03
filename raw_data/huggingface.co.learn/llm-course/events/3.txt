@@ -1,0 +1,15 @@
+---
+title: Gradio Blocks Party
+url: https://huggingface.co/learn/llm-course/events/3
+course: llm-course
+chapter: Course Events
+chapter_id: events/3
+---
+# Gradio Blocks Party
+
+ 
+Along with the release of the Gradio chapter of the course, Hugging Face hosted a community event on building cool machine learning demos using the new Gradio Blocks feature.
+ 
+You can find all the demos that the community created under the [Gradio-Blocks](https://huggingface.co/Gradio-Blocks) organisation on the Hub. Here’s a few examples from the winners:
+ 
+**Natural language to SQL**

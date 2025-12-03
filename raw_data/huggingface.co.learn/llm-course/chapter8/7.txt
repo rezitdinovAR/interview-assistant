@@ -1,0 +1,58 @@
+---
+title: End-of-chapter quiz
+url: https://huggingface.co/learn/llm-course/chapter8/7
+course: llm-course
+chapter: 8. How to ask for help
+chapter_id: chapter8/7
+---
+# End-of-chapter quiz
+
+   
+Let’s test what you learned in this chapter!
+ 
+
+### 1. In which order should you read a Python traceback?
+
+  From top to bottom  From bottom to top   
+
+### 2. What is a minimal reproducible example?
+
+  A simple implementation of a Transformer architecture from a research article  A compact and self-contained block of code that can be run without any external dependencies on private files or data  A screenshot of the Python traceback  A notebook that contains your whole analysis, including parts unrelated to the error   
+
+### 3. Suppose you try to run the following code, which throws an error:
+
+  
+```
+from transformers import GPT3ForSequenceClassification
+
+# ImportError: cannot import name 'GPT3ForSequenceClassification' from 'transformers' (/Users/lewtun/miniconda3/envs/huggingface/lib/python3.8/site-packages/transformers/__init__.py)
+# ---------------------------------------------------------------------------
+# ImportError                               Traceback (most recent call last)
+# /var/folders/28/k4cy5q7s2hs92xq7_h89_vgm0000gn/T/ipykernel_30848/333858878.py in <module>
+# ----> 1 from transformers import GPT3ForSequenceClassification
+
+# ImportError: cannot import name 'GPT3ForSequenceClassification' from 'transformers' (/Users/lewtun/miniconda3/envs/huggingface/lib/python3.8/site-packages/transformers/__init__.py)
+```
+ 
+Which of the following might be a good choice for the title of a forum topic to ask for help?
+  `ImportError: cannot import name 'GPT3ForSequenceClassification' from 'transformers' (/Users/lewtun/miniconda3/envs/huggingface/lib/python3.8/site-packages/transformers/__init__.py)`  Problem with `from transformers import GPT3ForSequenceClassification`  Why can't I import `GPT3ForSequenceClassification`?  Is GPT-3 supported in 🤗 Transformers?   
+
+### 4. Suppose you’ve tried to run trainer.train() and are faced with a cryptic error that doesn’t tell you exactly where the error is coming from. Which of the following is the first place you should look for errors in your training pipeline?
+
+  The optimization step where we compute gradients and perform backpropagation  The evaluation step where we compute metrics  The datasets  The dataloaders   
+
+### 5. What is the best way to debug a CUDA error?
+
+  Post the error message on the forums or GitHub.  Execute the same code on the CPU.  Read the traceback to find out what caused the error.  Reduce the batch size.  Restart the Jupyter kernel.   
+
+### 6. What is the best way to get an issue on GitHub fixed?
+
+  Post a full reproducible example of the bug.  Ask every day for an update.  Inspect the source code around the bug and try to find the reason why it happens. Post the results in the issue.   
+
+### 7. Why is overfitting to one batch usually a good debugging technique?
+
+  It isn't; overfitting is always bad and should be avoided.  It allows us to verify that the model is able to reduce the loss to zero.  It allows us to verify that the tensor shapes of our inputs and labels are correct.   
+
+### 8. Why is it a good idea to include details on your compute environment with transformers-cli env when creating a new issue in the 🤗 Transformers repo?
+
+  It allows the maintainers to understand which version of the library you're using.  It allows the maintainers to know whether you're running code on Windows, macOS, or Linux.  It allows the maintainers to know whether you're running code on a GPU or CPU.

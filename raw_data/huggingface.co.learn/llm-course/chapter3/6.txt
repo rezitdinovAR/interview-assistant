@@ -1,0 +1,28 @@
+---
+title: Fine-tuning, Check!
+url: https://huggingface.co/learn/llm-course/chapter3/6
+course: llm-course
+chapter: 3. Fine-tuning a pretrained model
+chapter_id: chapter3/6
+---
+[Pytorch](?fw=pt)[TensorFlow](?fw=tf)  
+
+# Fine-tuning, Check!
+
+   
+That was comprehensive! In the first two chapters you learned about models and tokenizers, and now you know how to fine-tune them for your own data using modern best practices. To recap, in this chapter you:
+ 
+- Learned about datasets on the [Hub](https://huggingface.co/datasets) and modern data processing techniques
+- Learned how to load and preprocess datasets efficiently, including using dynamic padding and data collators
+- Implemented fine-tuning and evaluation using the high-level `Trainer` API with the latest features
+- Implemented a complete custom training loop from scratch with PyTorch
+- Used 🤗 Accelerate to make your training code work seamlessly on multiple GPUs or TPUs
+- Applied modern optimization techniques like mixed precision training and gradient accumulation
+ 
+> 🎉Congratulations!You’ve mastered the fundamentals of fine-tuning transformer models. You’re now ready to tackle real-world ML projects!📖Continue Learning: Explore these resources to deepen your knowledge:🤗 Transformers task guidesfor specific NLP tasks🤗 Transformers examplesfor comprehensive notebooks🚀Next Steps:Try fine-tuning on your own dataset using the techniques you’ve learnedExperiment with different model architectures available on theHugging Face HubJoin theHugging Face communityto share your projects and get help
+ 
+This is just the beginning of your journey with 🤗 Transformers. In the next chapter, we’ll explore how to share your models and tokenizers with the community and contribute to the ever-growing ecosystem of pretrained models.
+ 
+The skills you’ve developed here - data preprocessing, training configuration, evaluation, and optimization - are fundamental to any machine learning project. Whether you’re working on text classification, named entity recognition, question answering, or any other NLP task, these techniques will serve you well.
+ 
+> 💡Pro Tips for Success:Always start with a strong baseline using theTrainerAPI before implementing custom training loopsUse the 🤗 Hub to find pretrained models that are close to your task for better starting pointsMonitor your training with proper evaluation metrics and don’t forget to save checkpointsLeverage the community - share your models and datasets to help others and get feedback on your work

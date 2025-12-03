@@ -1,0 +1,69 @@
+---
+title: End-of-chapter quiz
+url: https://huggingface.co/learn/llm-course/chapter2/9
+course: llm-course
+chapter: 2. Using 🤗 Transformers
+chapter_id: chapter2/9
+---
+[Pytorch](?fw=pt)[TensorFlow](?fw=tf)  
+
+# End-of-chapter quiz
+
+   
+
+### 1. What is the order of the language modeling pipeline?
+
+  First, the model, which handles text and returns raw predictions. The tokenizer then makes sense of these predictions and converts them back to text when needed.  First, the tokenizer, which handles text and returns IDs. The model handles these IDs and outputs a prediction, which can be some text.  The tokenizer handles text and returns IDs. The model handles these IDs and outputs a prediction. The tokenizer can then be used once again to convert these predictions back to some text.   
+
+### 2. How many dimensions does the tensor output by the base Transformer model have, and what are they?
+
+  2: The sequence length and the batch size  2: The sequence length and the hidden size  3: The sequence length, the batch size, and the hidden size   
+
+### 3. Which of the following is an example of subword tokenization?
+
+  WordPiece  Character-based tokenization  Splitting on whitespace and punctuation  BPE  Unigram  None of the above   
+
+### 4. What is a model head?
+
+  A component of the base Transformer network that redirects tensors to their correct layers  Also known as the self-attention mechanism, it adapts the representation of a token according to the other tokens of the sequence  An additional component, usually made up of one or a few layers, to convert the transformer predictions to a task-specific output   
+
+### 5. What is an AutoModel?
+
+  A model that automatically trains on your data  An object that returns the correct architecture based on the checkpoint  A model that automatically detects the language used for its inputs to load the correct weights   
+
+### 6. What are the techniques to be aware of when batching sequences of different lengths together?
+
+  Truncating  Returning tensors  Padding  Attention masking   
+
+### 7. What is the point of applying a SoftMax function to the logits output by a sequence classification model?
+
+  It softens the logits so that they're more reliable.  It applies a lower and upper bound so that they're understandable.  The total sum of the output is then 1, resulting in a possible probabilistic interpretation.   
+
+### 8. What method is most of the tokenizer API centered around?
+
+  `encode`, as it can encode text into IDs and IDs into predictions  Calling the tokenizer object directly.  `pad`  `tokenize`   
+
+### 9. What does the result variable contain in this code sample?
+
+  
+```
+from transformers import AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+result = tokenizer.tokenize("Hello!")
+```
+  A list of strings, each string being a token  A list of IDs  A string containing all of the tokens   
+
+### 10. Is there something wrong with the following code?
+
+  
+```
+from transformers import AutoTokenizer, AutoModel
+
+tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+model = AutoModel.from_pretrained("gpt2")
+
+encoded = tokenizer("Hey!", return_tensors="pt")
+result = model(**encoded)
+```
+  No, it seems correct.  The tokenizer and model should always be from the same checkpoint.  It's good practice to pad and truncate with the tokenizer as every input is a batch.

@@ -1,0 +1,31 @@
+---
+title: Quick Self-Check (ungraded)
+url: https://huggingface.co/learn/agents-course/unit2/llama-index/quiz2
+course: agents-course
+chapter: Unit 2.2 The LlamaIndex framework
+chapter_id: unit2/llama-index/quiz2
+---
+# Quick Self-Check (ungraded)
+
+ 
+What?! Another Quiz? We know, we know, … 😅 But this short, ungraded quiz is here to **help you reinforce key concepts you’ve just learned**.
+ 
+This quiz covers agent workflows and interactions - essential components for building effective AI agents.
+ 
+
+### Q1: What is the purpose of AgentWorkflow in LlamaIndex?
+
+  To run one or more agents with tools  To create a single agent that can query your data without memory  To automatically build tools for agents  To manage agent memory and state    
+
+### Q2: What object is used for keeping track of the state of the workflow?
+
+  State  Context  WorkflowState  Management    
+
+### Q3: Which method should be used if you want an agent to remember previous interactions?
+
+  run(query_str)  chat(query_str, ctx=ctx)  interact(query_str)  run(query_str, ctx=ctx)    
+
+### Q4: What is a key feature of Agentic RAG?
+
+  It can only use document-based tools, to answer questions in a RAG workflow  It automatically answers questions without tools, like a chatbot  It can decide to use any tool to answer questions, including RAG tools  It only works with Function Calling Agents    
+Got it? Great! Now let’s **do a brief recap of the unit!**

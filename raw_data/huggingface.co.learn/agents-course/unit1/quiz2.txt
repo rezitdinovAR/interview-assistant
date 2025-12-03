@@ -1,0 +1,35 @@
+---
+title: Quick Self-Check (ungraded)
+url: https://huggingface.co/learn/agents-course/unit1/quiz2
+course: agents-course
+chapter: Unit 1. Introduction to Agents
+chapter_id: unit1/quiz2
+---
+# Quick Self-Check (ungraded)
+
+ 
+What?! Another Quiz? We know, we know, … 😅 But this short, ungraded quiz is here to **help you reinforce key concepts you’ve just learned**.
+ 
+This quiz covers Large Language Models (LLMs), message systems, and tools; essential components for understanding and building AI agents.
+ 
+
+### Q1: Which of the following best describes an AI tool?
+
+  A process that only generates text responses  An executable process or external API that allows agents to perform specific tasks and interact with external environments  A feature that stores agent conversations    
+
+### Q2: How do AI agents use tools as a form of “acting” in an environment?
+
+  By passively waiting for user instructions  By only using pre-programmed responses  By asking the LLM to generate tool invocation code when appropriate and running tools on behalf of the model    
+
+### Q3: What is a Large Language Model (LLM)?
+
+  A simple chatbot designed to respond with pre-defined answers  A deep learning model trained on large amounts of text to understand and generate human-like language  A rule-based AI that follows strict predefined commands    
+
+### Q4: Which of the following best describes the role of special tokens in LLMs?
+
+  They are additional words stored in the model's vocabulary to enhance text generation quality  They serve specific functions like marking the end of a sequence (EOS) or separating different message roles in chat models  They are randomly inserted tokens used to improve response variability    
+
+### Q5: How do AI chat models process user messages internally?
+
+  They directly interpret messages as structured commands with no transformations  They convert user messages into a formatted prompt by concatenating system, user, and assistant messages  They generate responses randomly based on previous conversations    
+Got it? Great! Now let’s **dive into the complete Agent flow and start building your first AI Agent!**

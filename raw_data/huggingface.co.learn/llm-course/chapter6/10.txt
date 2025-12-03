@@ -1,0 +1,52 @@
+---
+title: End-of-chapter quiz
+url: https://huggingface.co/learn/llm-course/chapter6/10
+course: llm-course
+chapter: 6. The 🤗 Tokenizers library
+chapter_id: chapter6/10
+---
+# End-of-chapter quiz
+
+   
+Let’s test what you learned in this chapter!
+ 
+
+### 1. When should you train a new tokenizer?
+
+  When your dataset is similar to that used by an existing pretrained model, and you want to pretrain a new model  When your dataset is similar to that used by an existing pretrained model, and you want to fine-tune a new model using this pretrained model  When your dataset is different from the one used by an existing pretrained model, and you want to pretrain a new model  When your dataset is different from the one used by an existing pretrained model, but you want to fine-tune a new model using this pretrained model   
+
+### 2. What is the advantage of using a generator of lists of texts compared to a list of lists of texts when using train_new_from_iterator() ?
+
+  That's the only type the method `train_new_from_iterator()` accepts.  You will avoid loading the whole dataset into memory at once.  This will allow the 🤗 Tokenizers library to use multiprocessing.  The tokenizer you train will generate better texts.   
+
+### 3. What are the advantages of using a “fast” tokenizer?
+
+  It can process inputs faster than a slow tokenizer when you batch lots of inputs together.  Fast tokenizers always tokenize faster than their slow counterparts.  It can apply padding and truncation.  It has some additional features allowing you to map tokens to the span of text that created them.   
+
+### 4. How does the token-classification pipeline handle entities that span over several tokens?
+
+  The entities with the same label are merged into one entity.  There is a label for the beginning of an entity and a label for the continuation of an entity.  In a given word, as long as the first token has the label of the entity, the whole word is considered labeled with that entity.  When a token has the label of a given entity, any other following token with the same label is considered part of the same entity, unless it's labeled as the start of a new entity.   
+
+### 5. How does the question-answering pipeline handle long contexts?
+
+  It doesn't really, as it truncates the long context at the maximum length accepted by the model.  It splits the context into several parts and averages the results obtained.  It splits the context into several parts (with overlap) and finds the maximum score for an answer in each part.  It splits the context into several parts (without overlap, for efficiency) and finds the maximum score for an answer in each part.   
+
+### 6. What is normalization?
+
+  It's any cleanup the tokenizer performs on the texts in the initial stages.  It's a data augmentation technique that involves making the text more normal by removing rare words.  It's the final post-processing step where the tokenizer adds the special tokens.  It's when the embeddings are made with mean 0 and standard deviation 1, by subtracting the mean and dividing by the std.   
+
+### 7. What is pre-tokenization for a subword tokenizer?
+
+  It's the step before the tokenization, where data augmentation (like random masking) is applied.  It's the step before the tokenization, where the desired cleanup operations are applied to the text.  It's the step before the tokenizer model is applied, to split the input into words.  It's the step before the tokenizer model is applied, to split the input into tokens.   
+
+### 8. Select the sentences that apply to the BPE model of tokenization.
+
+  BPE is a subword tokenization algorithm that starts with a small vocabulary and learns merge rules.  BPE is a subword tokenization algorithm that starts with a big vocabulary and progressively removes tokens from it.  BPE tokenizers learn merge rules by merging the pair of tokens that is the most frequent.  A BPE tokenizer learns a merge rule by merging the pair of tokens that maximizes a score that privileges frequent pairs with less frequent individual parts.  BPE tokenizes words into subwords by splitting them into characters and then applying the merge rules.  BPE tokenizes words into subwords by finding the longest subword starting from the beginning that is in the vocabulary, then repeating the process for the rest of the text.   
+
+### 9. Select the sentences that apply to the WordPiece model of tokenization.
+
+  WordPiece is a subword tokenization algorithm that starts with a small vocabulary and learns merge rules.  WordPiece is a subword tokenization algorithm that starts with a big vocabulary and progressively removes tokens from it.  WordPiece tokenizers learn merge rules by merging the pair of tokens that is the most frequent.  A WordPiece tokenizer learns a merge rule by merging the pair of tokens that maximizes a score that privileges frequent pairs with less frequent individual parts.  WordPiece tokenizes words into subwords by finding the most likely segmentation into tokens, according to the model.  WordPiece tokenizes words into subwords by finding the longest subword starting from the beginning that is in the vocabulary, then repeating the process for the rest of the text.   
+
+### 10. Select the sentences that apply to the Unigram model of tokenization.
+
+  Unigram is a subword tokenization algorithm that starts with a small vocabulary and learns merge rules.  Unigram is a subword tokenization algorithm that starts with a big vocabulary and progressively removes tokens from it.  Unigram adapts its vocabulary by minimizing a loss computed over the whole corpus.  Unigram adapts its vocabulary by keeping the most frequent subwords.  Unigram tokenizes words into subwords by finding the most likely segmentation into tokens, according to the model.  Unigram tokenizes words into subwords by splitting them into characters, then applying the merge rules.

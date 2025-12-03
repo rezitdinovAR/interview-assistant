@@ -1,0 +1,62 @@
+---
+title: End-of-chapter quiz
+url: https://huggingface.co/learn/llm-course/chapter7/9
+course: llm-course
+chapter: 7. Classical NLP tasks
+chapter_id: chapter7/9
+---
+[Pytorch](?fw=pt)[TensorFlow](?fw=tf)  
+
+# End-of-chapter quiz
+
+   
+Let’s test what you learned in this chapter!
+ 
+
+### 1. Which of the following tasks can be framed as a token classification problem?
+
+  Find the grammatical components in a sentence.  Find whether a sentence is grammatically correct or not.  Find the persons mentioned in a sentence.  Find the chunk of words in a sentence that answers a question.   
+
+### 2. What part of the preprocessing for token classification differs from the other preprocessing pipelines?
+
+  There is no need to do anything; the texts are already tokenized.  The texts are given as words, so we only need to apply subword tokenization.  We use `-100` to label the special tokens.  We need to make sure to truncate or pad the labels to the same size as the inputs, when applying truncation/padding.   
+
+### 3. What problem arises when we tokenize the words in a token classification problem and want to label the tokens?
+
+  The tokenizer adds special tokens and we have no labels for them.  Each word can produce several tokens, so we end up with more tokens than we have labels.  The added tokens have no labels, so there is no problem.   
+
+### 4. What does “domain adaptation” mean?
+
+  It's when we run a model on a dataset and get the predictions for each sample in that dataset.  It's when we train a model on a dataset.  It's when we fine-tune a pretrained model on a new dataset, and it gives predictions that are more adapted to that dataset  It's when we add misclassified samples to a dataset to make our model more robust.   
+
+### 5. What are the labels in a masked language modeling problem?
+
+  Some of the tokens in the input sentence are randomly masked and the labels are the original input tokens.  Some of the tokens in the input sentence are randomly masked and the labels are the original input tokens, shifted to the left.  Some of the tokens in the input sentence are randomly masked, and the label is whether the sentence is positive or negative.  Some of the tokens in the two input sentences are randomly masked, and the label is whether the two sentences are similar or not.   
+
+### 6. Which of these tasks can be seen as a sequence-to-sequence problem?
+
+  Writing short reviews of long documents  Answering questions about a document  Translating a text in Chinese into English  Fixing the messages sent by my nephew/friend so they're in proper English   
+
+### 7. What is the proper way to preprocess the data for a sequence-to-sequence problem?
+
+  The inputs and targets have to be sent together to the tokenizer with `inputs=...` and `targets=...`.  The inputs and the targets both have to be preprocessed, in two separate calls to the tokenizer.  As usual, we just have to tokenize the inputs.  The inputs have to be sent to the tokenizer, and the targets too, but under a special context manager.   
+
+### 8. Why is there a specific subclass of Trainer for sequence-to-sequence problems?
+
+  Because sequence-to-sequence problems use a custom loss, to ignore the labels set to `-100`  Because sequence-to-sequence problems require a special evaluation loop  Because the targets are texts in sequence-to-sequence problems  Because we use two models in sequence-to-sequence problems   
+
+### 10. When should you pretrain a new model?
+
+  When there is no pretrained model available for your specific language  When you have lots of data available, even if there is a pretrained model that could work on it  When you have concerns about the bias of the pretrained model you are using  When the pretrained models available are just not good enough   
+
+### 11. Why is it easy to pretrain a language model on lots and lots of texts?
+
+  Because there are plenty of texts available on the internet  Because the pretraining objective does not require humans to label the data  Because the 🤗 Transformers library only requires a few lines of code to start the training   
+
+### 12. What are the main challenges when preprocessing data for a question answering task?
+
+  You need to tokenize the inputs.  You need to deal with very long contexts, which give several training features that may or may not have the answer in them.  You need to tokenize the answers to the question as well as the inputs.  From the answer span in the text, you have to find the start and end token in the tokenized input.   
+
+### 13. How is post-processing usually done in question answering?
+
+  The model gives you the start and end positions of the answer, and you just have to decode the corresponding span of tokens.  The model gives you the start and end positions of the answer for each feature created by one example, and you just have to decode the corresponding span of tokens in the one that has the best score.  The model gives you the start and end positions of the answer for each feature created by one example, and you just have to match them to the span in the context for the one that has the best score.  The model generates an answer, and you just have to decode it.

@@ -1,0 +1,41 @@
+---
+title: Small Quiz (ungraded)
+url: https://huggingface.co/learn/agents-course/unit2/llama-index/quiz1
+course: agents-course
+chapter: Unit 2.2 The LlamaIndex framework
+chapter_id: unit2/llama-index/quiz1
+---
+# Small Quiz (ungraded)
+
+ 
+So far we’ve discussed the key components and tools used in LlamaIndex.
+It’s time to make a short quiz, since **testing yourself** is the best way to learn and [to avoid the illusion of competence](https://www.coursera.org/lecture/learning-how-to-learn/illusions-of-competence-BuFzf).
+This will help you find **where you need to reinforce your knowledge**.
+ 
+This is an optional quiz and it’s not graded.
+ 
+
+### Q1: What is a QueryEngine?
+
+ 
+Which of the following best describes a QueryEngine component?
+  A system that only processes static text without any retrieval capabilities.  A component that finds and retrieves relevant information as part of the RAG process.  A tool that only stores vector embeddings without search functionality.  A component that only evaluates response quality.    
+
+### Q2: What is the Purpose of FunctionTools?
+
+ 
+Why are FunctionTools important for an Agent?
+  To handle large amounts of data storage.  To convert Python functions into tools that an agent can use.  To allow agents to create random functions definitions.  To only process text data.    
+
+### Q3: What are Toolspecs in LlamaIndex?
+
+ 
+What is the main purpose of Toolspecs?
+  They are redundant components that don't add functionality.  They are sets of community-created tools that extend agent capabilities.  They are used solely for memory management.  They only work with text processing.    
+
+### Q4: What is Required to create a tool?
+
+ 
+What information must be included when creating a tool?
+  A function, a name, and description must be defined.  Only the name is required.  Only the description is required.  Only the function is required.    
+Congrats on finishing this Quiz 🥳, if you missed some elements, take time to read again the chapter to reinforce your knowledge. If you pass it, you’re ready to dive deeper into building with these components!

@@ -1,0 +1,45 @@
+---
+title: Small Quiz (ungraded)
+url: https://huggingface.co/learn/agents-course/unit2/smolagents/quiz1
+course: agents-course
+chapter: Unit 2.1 The smolagents framework
+chapter_id: unit2/smolagents/quiz1
+---
+# Small Quiz (ungraded)
+
+ 
+Let’s test your understanding of `smolagents` with a quick quiz! Remember, testing yourself helps reinforce learning and identify areas that may need review.
+ 
+This is an optional quiz and it’s not graded.
+ 
+
+### Q1: What is one of the primary advantages of choosing smolagents over other frameworks?
+
+ 
+Which statement best captures a core strength of the `smolagents` approach?
+  It uses highly specialized configuration files and a steep learning curve to ensure only expert developers can use it  It supports a code-first approach with minimal abstractions, letting agents interact directly via Python function calls  It focuses on JSON-based actions, removing the need for agents to write any code  It deeply integrates with a single LLM provider and specialized hardware    
+
+### Q2: In which scenario would you likely benefit most from using smolagents?
+
+ 
+Which situation aligns well with what smolagents does best?
+  Prototyping or experimenting quickly with agent logic, particularly when your application is relatively straightforward  Building a large-scale enterprise system where you need dozens of microservices and real-time data pipelines  Needing a framework that only supports cloud-based LLMs and forbids local inference  A scenario that requires advanced orchestration, multi-modal perception, and enterprise-scale features out-of-the-box    
+
+### Q3: smolagents offers flexibility in model integration. Which statement best reflects its approach?
+
+ 
+Choose the most accurate description of how smolagents interoperates with LLMs.
+  It only provides a single built-in model and does not allow custom integrations  It requires you to implement your own model connector for every LLM usage  It only integrates with open-source LLMs but not commercial APIs  It can be used with a wide range of LLMs, offering predefined classes like TransformersModel, InferenceClientModel, and LiteLLMModel    
+
+### Q4: How does smolagents handle the debate between code-based actions and JSON-based actions?
+
+ 
+Which statement correctly characterizes smolagents’ philosophy about action formats?
+  It only allows JSON-based actions for all agent tasks, requiring a parser to extract the tool calls  It focuses on code-based actions via a CodeAgent but also supports JSON-based tool calls with a ToolCallingAgent  It disallows any external function calls, instead requiring all logic to reside entirely within the LLM  It requires users to manually convert every code snippet into a JSON object before running the agent    
+
+### Q5: How does smolagents integrate with the Hugging Face Hub for added benefits?
+
+ 
+Which statement accurately describes one of the core advantages of Hub integration?
+  It automatically upgrades all public models to commercial license tiers  It disables local inference entirely, forcing remote model usage only  It allows you to push and share agents or tools, making them easily discoverable and reusable by other developers  It permanently stores all your code-based agents, preventing any updates or versioning    
+Congratulations on completing this quiz! 🎉 If you missed any questions, consider reviewing the *Why use smolagents* section for a deeper understanding. If you did well, you’re ready to explore more advanced topics in smolagents!
