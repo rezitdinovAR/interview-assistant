@@ -89,3 +89,71 @@ def process_qa_directory(input_dir: str, output_file: str, description: str = No
     print("\nГотово!")
     print(f"Всего записей: {len(all_records)}")
     print(f"Сохранено в: {output_file}")
+
+def clean_underscores(text: str) -> str:
+    """
+    Убирает все линии или последовательности подчёркиваний.
+    """
+    # 1) линии только из подчёркиваний (с любыми \n)
+    text = re.sub(r"\n?_+_\n?", "\n", text)
+    # 2) последовательности подчёркиваний внутри текста
+    text = re.sub(r"_+", "", text)
+    # 3) лишние пробелы/новые строки
+    text = re.sub(r"\n{2,}", "\n\n", text)
+    return text.strip()
+
+
+def process_plain_qa_file(file_path: Path, description: str = None) -> List[Dict[str, Any]]:
+    """
+    Обрабатывает txt-файлы формата:
+    1. Название секции
+    Вопрос: ...
+    Ответ: ...
+    ____________________
+    """
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        text = f.read()
+
+    # Убираем подчёркивания в начале
+    text = clean_underscores(text)
+
+    # Разбиваем по 1. 2. 3.
+    blocks = re.split(r"\n?\s*\d+\.\s+", text)
+    blocks = [b.strip() for b in blocks if b.strip()]
+
+    results = []
+    q_global = 0
+
+    for block in blocks:
+        lines = block.split("\n")
+        section_title = lines[0].strip()
+        section_text = "\n".join(lines[1:]).strip()
+
+        # Разбиваем на пары Вопрос/Ответ
+        qa_pairs = re.split(r"Вопрос:", section_text)
+        qa_pairs = [q.strip() for q in qa_pairs if q.strip()]
+
+        for pair in qa_pairs:
+            parts = re.split(r"Ответ:", pair)
+            if len(parts) < 2:
+                continue
+
+            question = clean_underscores(parts[0].strip())
+            answer = clean_underscores(parts[1].strip())
+
+            q_global += 1
+
+            results.append({
+                "text": f"Вопрос: {question}\nОтвет: {answer}",
+                "metadata": {
+                    "section": section_title,
+                    "question_number": q_global,
+                    "question": question,
+                    "answer": answer,
+                    "source_file": file_path.name,
+                    "description": description or None
+                }
+            })
+
+    return results
