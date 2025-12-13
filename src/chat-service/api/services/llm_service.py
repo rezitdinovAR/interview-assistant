@@ -160,6 +160,7 @@ class LLMGraphMemoryWithRAG:
 
         # Получаем ответ от графа
         result = await self._invoke_graph(user_id, [new_message])
+        print(result["messages"][-1].content)
 
         return result["messages"][-1].content
 
