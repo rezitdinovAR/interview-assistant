@@ -124,7 +124,6 @@ class LLMGraphMemoryWithRAG:
                 f"Документ {i+1}:\n{doc}"
                 for i, doc in enumerate(documents)
             ])
-            print(context)
 
             # Дополняем исходное сообщение контекстом
             augmented_message = f"""Контекст для ответа:
