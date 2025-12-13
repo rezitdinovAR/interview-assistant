@@ -1,6 +1,7 @@
+import uuid
 import os
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from weaviate import Client
 
 from .utils import ensure_schema, embed_texts, rerank
@@ -24,7 +25,7 @@ async def add_chunks(chunks: Chunks) -> StatusResponse:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    if len(vectors) != len(req.chunks):
+    if len(vectors) != len(chunks.texts):
         raise HTTPException(
             status_code=500,
             detail="Количество эмбеддингов не совпадает с количеством чанков",
@@ -48,14 +49,15 @@ async def add_chunks(chunks: Chunks) -> StatusResponse:
 
 
 @router.post("/retrieve", response_model=Chunks)
-async def retrieve(req: SearchQuery) -> Chunks:
-    if not req.query:
+async def retrieve(query: SearchQuery) -> Chunks:
+    if not query.text:
         raise HTTPException(status_code=400, detail="query is empty")
 
-    top_k = max(1, req.top_k)
+    top_k = max(1, 7)
 
     try:
-        query_vec = await embed_texts([req.query])[0]
+        embedded = await embed_texts([query.text])
+        query_vec = embedded[0]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -75,10 +77,10 @@ async def retrieve(req: SearchQuery) -> Chunks:
         )
 
     if not candidates:
-        return RetrieveResponse(chunks=[])
+        return Chunks(texts=[])
 
     try:
-        ranked = await rerank(req.query, candidates, top_k=top_k)
+        ranked = await rerank(query.text, candidates, top_k=top_k)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -29,7 +29,7 @@ def ensure_schema(client: Client, name: str) -> None:
         client.schema.create_class(schema)
 
 
-async def embed_texts(texts: List[str], emded_url: str, embed_model: str) -> List[List[float]]:
+async def embed_texts(texts: List[str]) -> List[List[float]]:
     """Получить эмбеддинги из vLLM‑эмбеддера."""
     try:
         resp = requests.post(
@@ -55,8 +55,6 @@ async def embed_texts(texts: List[str], emded_url: str, embed_model: str) -> Lis
 async def rerank(
     query: str,
     documents: List[str],
-    rerank_url: str,
-    rerank_model: str,
     top_k: int = 7
 ) -> List[dict]:
     """
