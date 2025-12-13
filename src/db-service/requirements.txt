@@ -1,0 +1,5 @@
+fastapi
+weaviate-client==3.26.4
+typing
+uvicorn
+requests

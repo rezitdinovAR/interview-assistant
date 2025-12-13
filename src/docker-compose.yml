@@ -1,0 +1,62 @@
+services:
+  weaviate:
+    image: semitechnologies/weaviate:1.26.4
+    container_name: weaviate
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+    restart: unless-stopped
+    volumes:
+      - ./db-service/data:/var/lib/weaviate
+    environment:
+      QUERY_DEFAULTS_LIMIT: 30
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+  
+  api:
+    build: ./db-service
+    container_name: api
+    ports:
+      - "8083:8080"
+    restart: unless-stopped
+    volumes:
+      - ./db-service:/workspace
+    environment:
+      - EMBEDDING_URL=http://embedding:8000
+      - EMBEDDING_MODEL=Qwen3-Embedding-8B
+      - RERANKER_URL=http://reranking:8000
+      - RERANKER_MODEL=Qwen3-Reranker-8B
+      - WEAVIATE_URL=http://weaviate:8080
+    
+  
+  embedding:
+    build: ./embedding-service
+    container_name: embedding
+    ports:
+      - "8081:8000"
+    restart: unless-stopped
+    volumes:
+      - ./embedding-service/models:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['6']
+              capabilities: [gpu]
+  
+  reranking:
+    build: ./reranking-service
+    container_name: reranking
+    ports:
+      - "8082:8000"
+    restart: unless-stopped
+    volumes:
+      - ./reranking-service/models:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['5']
+              capabilities: [gpu]
