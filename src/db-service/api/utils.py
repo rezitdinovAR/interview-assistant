@@ -2,6 +2,7 @@ import os
 import uuid
 import json
 from typing import List
+import logging
 
 import requests
 from weaviate import Client
@@ -18,7 +19,7 @@ def ensure_schema(client: Client, name: str) -> None:
     if not client.schema.exists(name):
         schema = {
             "class": name,
-            "vectorizer": "none",  # вектор задаем сами
+            "vectorizer": "none",
             "properties": [
                 {
                     "name": "text",
@@ -29,7 +30,7 @@ def ensure_schema(client: Client, name: str) -> None:
         client.schema.create_class(schema)
 
 
-async def embed_texts(texts: List[str], emded_url: str, embed_model: str) -> List[List[float]]:
+async def embed_texts(texts: List[str]) -> List[List[float]]:
     """Получить эмбеддинги из vLLM‑эмбеддера."""
     try:
         resp = requests.post(
@@ -55,8 +56,6 @@ async def embed_texts(texts: List[str], emded_url: str, embed_model: str) -> Lis
 async def rerank(
     query: str,
     documents: List[str],
-    rerank_url: str,
-    rerank_model: str,
     top_k: int = 7
 ) -> List[dict]:
     """
@@ -67,41 +66,34 @@ async def rerank(
     if not documents:
         return []
 
-    try:
-        resp = requests.post(
-            f"{rerank_url}/v1/score",
-            json={
-                "model": rerank_model,
-                "input": {
-                    "query": query,
-                    "documents": documents,
-                },
-                # Если твой сервер поддерживает ограничение количества прямо в запросе,
-                # можно дополнительно передать top_k здесь, но это опционально:
-                # "top_k": top_k,
-            },
-            timeout=60,
-        )
-    except requests.RequestException as e:
-        raise RuntimeError(f"Ошибка запроса к реранкеру: {e}")
+    results: List[Dict] = []
 
-    if resp.status_code != 200:
-        raise RuntimeError(
-            f"Реранкер вернул {resp.status_code}: {resp.text[:500]}"
-        )
+    for idx, doc in enumerate(documents):
+        payload = {
+            "model": reranker_model,
+            "text_1": query,
+            "text_2": doc,
+        }
 
-    data = resp.json()
-    items = data.get("data", [])
+        resp = requests.post(f"{reranker_url}/v1/score", json=payload)
 
-    # Фильтруем и сортируем результаты, затем обрезаем до top_k
-    valid = [
-        item
-        for item in items
-        if isinstance(item, dict)
-        and isinstance(item.get("index"), int)
-        and 0 <= item["index"] < len(documents)
-        and isinstance(item.get("score"), (int, float))
-    ]
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"Реранкер вернул {resp.status_code}: {resp.text[:500]}"
+            )
 
-    valid_sorted = sorted(valid, key=lambda x: x["score"], reverse=True)
-    return valid_sorted[:top_k]
+        data = resp.json()
+
+        if "score" in data:
+            score = float(data["score"])
+        elif "data" in data and data["data"]:
+            score = float(data["data"][0].get("score", 0.0))
+        else:
+            raise RuntimeError(
+                f"Не удалось получить score из ответа реранкера: {data}"
+            )
+
+        results.append({"index": idx, "score": score})
+
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results[:top_k]

@@ -10,3 +10,4 @@ class StatusResponse(BaseModel):
 
 class SearchQuery(BaseModel):
     text: str
+    top_k: int

@@ -1,6 +1,9 @@
+import logging
+import uuid
 import os
+import json
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Response
 from weaviate import Client
 
 from .utils import ensure_schema, embed_texts, rerank
@@ -24,7 +27,7 @@ async def add_chunks(chunks: Chunks) -> StatusResponse:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    if len(vectors) != len(req.chunks):
+    if len(vectors) != len(chunks.texts):
         raise HTTPException(
             status_code=500,
             detail="Количество эмбеддингов не совпадает с количеством чанков",
@@ -48,14 +51,15 @@ async def add_chunks(chunks: Chunks) -> StatusResponse:
 
 
 @router.post("/retrieve", response_model=Chunks)
-async def retrieve(req: SearchQuery) -> Chunks:
-    if not req.query:
+async def retrieve(query: SearchQuery) -> Chunks:
+    if not query.text:
         raise HTTPException(status_code=400, detail="query is empty")
 
-    top_k = max(1, req.top_k)
+    top_k = max(1, query.top_k)
 
     try:
-        query_vec = await embed_texts([req.query])[0]
+        embedded = await embed_texts([query.text])
+        query_vec = embedded[0]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -67,7 +71,7 @@ async def retrieve(req: SearchQuery) -> Chunks:
             .with_limit(30)
             .do()
         )
-        objects = res["data"]["Get"].get("doc", [])
+        objects = res["data"]["Get"].get("Doc", [])
         candidates = [obj["text"] for obj in objects]
     except Exception as e:
         raise HTTPException(
@@ -75,10 +79,10 @@ async def retrieve(req: SearchQuery) -> Chunks:
         )
 
     if not candidates:
-        return RetrieveResponse(chunks=[])
+        return Chunks(texts=[])
 
     try:
-        ranked = await rerank(req.query, candidates, top_k=top_k)
+        ranked = await rerank(query.text, candidates, top_k=top_k)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -88,3 +92,25 @@ async def retrieve(req: SearchQuery) -> Chunks:
     ]
 
     return Chunks(texts=result)
+
+
+@router.get("/debug")
+async def debug():
+
+    try:
+        schema = client.schema.get()
+        agg = client.query.aggregate("doc").with_meta_count().do()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Weaviate error: {e}")
+
+    return Response(
+        content=json.dumps(
+            {
+                "schema": schema,
+                "aggregate_doc": agg,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        media_type="application/json",
+    )
