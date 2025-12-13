@@ -5,10 +5,7 @@ import uvicorn
 from .routers import router
 
 
-app = FastAPI(
-    description=main_description,
-    openapi_tags=tags_metadata
-)
+app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

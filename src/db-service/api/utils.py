@@ -4,7 +4,7 @@ import json
 from typing import List
 
 import requests
-import weaviate
+from weaviate import Client
 
 
 embed_url = os.getenv("EMBEDDING_URL")
@@ -13,7 +13,7 @@ reranker_url = os.getenv("RERANKER_URL")
 reranker_model = os.getenv("RERANKER_MODEL")
 
 
-def ensure_schema(client: weaviate.Client, name: str) -> None:
+def ensure_schema(client: Client, name: str) -> None:
     """Создать класс в Weaviate, если его еще нет."""
     if not client.schema.exists(name):
         schema = {

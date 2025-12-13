@@ -1,14 +1,14 @@
 import os
 
 from fastapi import APIRouter
-import weaviate
+from weaviate import Client
 
 from .utils import ensure_schema, embed_texts, rerank
 from .schemas import Chunks, StatusResponse, SearchQuery
 
 
 db_url = os.getenv("WEAVIATE_URL")
-client = weaviate.Client(db_url)
+client = Client(db_url)
 ensure_schema(client, "doc")
 
 router = APIRouter()
