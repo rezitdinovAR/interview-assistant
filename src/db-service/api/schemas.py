@@ -9,4 +9,5 @@ class StatusResponse(BaseModel):
     status: Literal["OK", "ERROR"]
 
 class SearchQuery(BaseModel):
-    text: str
+    query: str
+    top_k: int = 5

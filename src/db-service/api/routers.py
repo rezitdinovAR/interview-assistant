@@ -1,6 +1,7 @@
 import os
+import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from weaviate import Client
 
 from .utils import ensure_schema, embed_texts, rerank
@@ -24,7 +25,7 @@ async def add_chunks(chunks: Chunks) -> StatusResponse:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    if len(vectors) != len(req.chunks):
+    if len(vectors) != len(chunks.texts):
         raise HTTPException(
             status_code=500,
             detail="Количество эмбеддингов не совпадает с количеством чанков",
@@ -75,7 +76,7 @@ async def retrieve(req: SearchQuery) -> Chunks:
         )
 
     if not candidates:
-        return RetrieveResponse(chunks=[])
+        return Chunks(texts=[])
 
     try:
         ranked = await rerank(req.query, candidates, top_k=top_k)

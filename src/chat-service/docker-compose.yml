@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: chat-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - ./redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  chat-service:
+    build: .
+    container_name: chat-service
+    ports:
+      - "8084:8080"
+    restart: unless-stopped
+    volumes:
+      - .:/workspace
+    environment:
+      - REDIS_URI=redis://redis:6379
+      - DB_SERVICE_URL=${DB_SERVICE_URL:-http://host.docker.internal:8083}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TOP_K_DOCUMENTS=${TOP_K_DOCUMENTS:-5}
+      - MAX_TOKENS=${MAX_TOKENS:-10000}
+      - SYSTEM_PROMPT_PATH=/workspace/prompts/system_prompt.txt
+    depends_on:
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
