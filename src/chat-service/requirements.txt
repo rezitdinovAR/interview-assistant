@@ -2,10 +2,10 @@ fastapi
 uvicorn
 pydantic
 pydantic-settings
-httpx
+httpx[socks]
 python-dotenv
 langchain-core
-langchain-openai
+langchain-google-genai
 langgraph
 langgraph-checkpoint-redis
 redis

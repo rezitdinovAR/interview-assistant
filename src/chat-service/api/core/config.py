@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 from pydantic_settings import BaseSettings
 
@@ -17,10 +16,12 @@ class Settings(BaseSettings):
     # DB Service
     db_service_url: str = "http://api:8080"
 
-    # OpenAI
-    openai_api_key: str
-    openai_base_url: str = "https://api.proxyapi.ru/openai/v1"
-    openai_model: str = "gpt-4o-mini-2024-07-18"
+    # Google Gemini
+    google_api_key: str
+    google_model: str = "gemini-flash-latest"
+
+    # Proxy settings (optional)
+    proxy_url: Optional[str] = None  # Format: socks5://user:pass@host:port or http://host:port
 
     # RAG Settings
     top_k_documents: int = 5

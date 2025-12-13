@@ -24,7 +24,8 @@ services:
     environment:
       - REDIS_URI=redis://redis:6379
       - DB_SERVICE_URL=${DB_SERVICE_URL:-http://host.docker.internal:8083}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - PROXY_URL=${PROXY_URL:-}
       - TOP_K_DOCUMENTS=${TOP_K_DOCUMENTS:-5}
       - MAX_TOKENS=${MAX_TOKENS:-10000}
       - SYSTEM_PROMPT_PATH=/workspace/prompts/system_prompt.txt

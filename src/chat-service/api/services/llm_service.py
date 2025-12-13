@@ -2,7 +2,7 @@ import asyncio
 from typing import Dict, Any
 from pathlib import Path
 
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import StateGraph, MessagesState, START
 from langgraph.checkpoint.redis import RedisSaver
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -32,13 +32,18 @@ class LLMGraphMemoryWithRAG:
         self.model = self._init_model()
         self.graph = self._init_graph()
 
-    def _init_model(self) -> ChatOpenAI:
-        """Создаёт подключение к модели OpenAI"""
-        model = ChatOpenAI(
-            model=settings.openai_model,
-            base_url=settings.openai_base_url,
-            api_key=settings.openai_api_key,
-        )
+    def _init_model(self) -> ChatGoogleGenerativeAI:
+        """Создаёт подключение к модели Google Gemini"""
+        kwargs = {
+            "model": settings.google_model,
+            "api_key": settings.google_api_key,
+        }
+
+        # Добавляем proxy если указан
+        if settings.proxy_url:
+            kwargs["client_args"] = {"proxy": settings.proxy_url}
+        print(kwargs)
+        model = ChatGoogleGenerativeAI(**kwargs)
         return model
 
     def _init_graph(self) -> StateGraph:
@@ -119,6 +124,7 @@ class LLMGraphMemoryWithRAG:
                 f"Документ {i+1}:\n{doc}"
                 for i, doc in enumerate(documents)
             ])
+            print(context)
 
             # Дополняем исходное сообщение контекстом
             augmented_message = f"""Контекст для ответа:

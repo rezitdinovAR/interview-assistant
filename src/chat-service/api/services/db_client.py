@@ -7,7 +7,7 @@ from api.core.config import settings
 
 class SearchQuery(BaseModel):
     """Схема запроса для поиска в db-service"""
-
+    top_k: int
     text: str
 
 
@@ -39,7 +39,7 @@ class DBServiceClient:
             top_k = settings.top_k_documents
 
         url = f"{self.base_url}/retrieve"
-        payload = SearchQuery(text=query) # TODO add top_k params.
+        payload = SearchQuery(text=query, top_k=top_k)
 
         try:
             response = await self.client.post(url, json=payload.model_dump())
