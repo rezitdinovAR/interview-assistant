@@ -38,3 +38,6 @@ build/
 
 # Project specific
 .trunk/
+
+# Models cache
+**/models/
