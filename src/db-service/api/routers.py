@@ -1,7 +1,9 @@
+import logging
 import uuid
 import os
+import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from weaviate import Client
 
 from .utils import ensure_schema, embed_texts, rerank
@@ -53,7 +55,7 @@ async def retrieve(query: SearchQuery) -> Chunks:
     if not query.text:
         raise HTTPException(status_code=400, detail="query is empty")
 
-    top_k = max(1, 7)
+    top_k = max(1, query.top_k)
 
     try:
         embedded = await embed_texts([query.text])
@@ -69,7 +71,7 @@ async def retrieve(query: SearchQuery) -> Chunks:
             .with_limit(30)
             .do()
         )
-        objects = res["data"]["Get"].get("doc", [])
+        objects = res["data"]["Get"].get("Doc", [])
         candidates = [obj["text"] for obj in objects]
     except Exception as e:
         raise HTTPException(
@@ -90,3 +92,25 @@ async def retrieve(query: SearchQuery) -> Chunks:
     ]
 
     return Chunks(texts=result)
+
+
+@router.get("/debug")
+async def debug():
+
+    try:
+        schema = client.schema.get()
+        agg = client.query.aggregate("doc").with_meta_count().do()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Weaviate error: {e}")
+
+    return Response(
+        content=json.dumps(
+            {
+                "schema": schema,
+                "aggregate_doc": agg,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        media_type="application/json",
+    )
