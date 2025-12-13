@@ -2,17 +2,14 @@ version: '3.8'
 
 services:
   redis:
-    image: redis:7-alpine
+    image: redis/redis-stack:7.2.0-v9
     container_name: chat-redis
-    ports:
-      - "6379:6379"
     restart: unless-stopped
     volumes:
       - ./redis-data:/data
-    command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 10s
       timeout: 3s
       retries: 5
 

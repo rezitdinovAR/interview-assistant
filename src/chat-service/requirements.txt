@@ -4,8 +4,8 @@ pydantic
 pydantic-settings
 httpx
 python-dotenv
-langchain
-langchain-openai
 langchain-core
+langchain-openai
 langgraph
+langgraph-checkpoint-redis
 redis
