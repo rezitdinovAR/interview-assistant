@@ -1,8 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends
+import logging
+import traceback
 
 from api.schemas import ChatRequest, ChatResponse, ResetRequest, StatusResponse
 from api.services import LLMGraphMemoryWithRAG
 from api.core.dependencies import get_llm
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api/v1", tags=["chat"])
@@ -26,6 +30,8 @@ async def chat(
         response_text = await llm.ask(request.user_id, request.message)
         return ChatResponse(user_id=request.user_id, message=response_text)
     except Exception as e:
+        logger.error(f"Error processing chat message: {str(e)}")
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=500,
             detail=f"Error processing chat message: {str(e)}"

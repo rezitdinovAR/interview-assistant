@@ -22,11 +22,12 @@ class DBServiceClient:
 
     def __init__(self, base_url: str = None):
         self.base_url = base_url or settings.db_service_url
-        self.client = httpx.AsyncClient(timeout=30.0)
+        self.async_client = httpx.AsyncClient(timeout=30.0)
+        self.sync_client = httpx.Client(timeout=30.0)
 
-    async def retrieve_documents(self, query: str, top_k: int = None) -> List[str]:
+    def retrieve_documents(self, query: str, top_k: int = None) -> List[str]:
         """
-        Получает релевантные документы из db-service
+        Получает релевантные документы из db-service (синхронно)
 
         Args:
             query: Поисковый запрос
@@ -42,7 +43,33 @@ class DBServiceClient:
         payload = SearchQuery(text=query, top_k=top_k)
 
         try:
-            response = await self.client.post(url, json=payload.model_dump())
+            response = self.sync_client.post(url, json=payload.model_dump())
+            response.raise_for_status()
+
+            chunks = Chunks(**response.json())
+            return chunks.texts
+        except httpx.HTTPError as e:
+            raise Exception(f"Error retrieving documents from db-service: {e}")
+
+    async def retrieve_documents_async(self, query: str, top_k: int = None) -> List[str]:
+        """
+        Получает релевантные документы из db-service (асинхронно)
+
+        Args:
+            query: Поисковый запрос
+            top_k: Количество документов для получения
+
+        Returns:
+            Список текстов документов
+        """
+        if top_k is None:
+            top_k = settings.top_k_documents
+
+        url = f"{self.base_url}/retrieve"
+        payload = SearchQuery(text=query, top_k=top_k)
+
+        try:
+            response = await self.async_client.post(url, json=payload.model_dump())
             response.raise_for_status()
 
             chunks = Chunks(**response.json())
@@ -51,5 +78,6 @@ class DBServiceClient:
             raise Exception(f"Error retrieving documents from db-service: {e}")
 
     async def close(self):
-        """Закрывает соединение с клиентом"""
-        await self.client.aclose()
+        """Закрывает соединение с клиентами"""
+        await self.async_client.aclose()
+        self.sync_client.close()

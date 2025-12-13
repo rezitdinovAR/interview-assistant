@@ -1,16 +1,29 @@
 import asyncio
-from typing import Dict, Any
+from typing import Dict, Any, Literal, TypedDict
 from pathlib import Path
+import json
 
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.graph import StateGraph, MessagesState, START
-from langgraph.checkpoint.redis import RedisSaver
-from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.redis import AsyncRedisSaver
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+
 from langchain_core.messages.utils import trim_messages, count_tokens_approximately
 
 from api.core.config import settings
 from api.services.db_client import DBServiceClient
-
+from pydantic import BaseModel, Field
+    
+class InterviewAssistantState(TypedDict):
+    """Состояние для графа Interview Assistant"""
+    messages: list
+    is_interview_related: bool | None
+    retrieved_context: str | None
+    
+class RouterSchema(BaseModel):
+    is_interview_related: bool = Field(
+        False, description="Относится ли вопрос к подготовки к собеседованиям"
+    )
 
 class LLMGraphMemoryWithRAG:
     """
@@ -30,8 +43,25 @@ class LLMGraphMemoryWithRAG:
 
         self.db_client = DBServiceClient()
         self.model = self._init_model()
+        self.router = self._init_router()
         self.graph = self._init_graph()
+        
+    def _init_router(self):
+        """Создаёт подключение к модели Google Gemini"""
+        kwargs = {
+            "model": settings.google_model,
+            "api_key": settings.google_api_key,
+        }
 
+        # Добавляем proxy если указан
+        if settings.proxy_url:
+            kwargs["client_args"] = {"proxy": settings.proxy_url}
+
+        model = ChatGoogleGenerativeAI(**kwargs)
+        model=model.with_structured_output(RouterSchema)
+        
+        return model
+        
     def _init_model(self) -> ChatGoogleGenerativeAI:
         """Создаёт подключение к модели Google Gemini"""
         kwargs = {
@@ -42,20 +72,63 @@ class LLMGraphMemoryWithRAG:
         # Добавляем proxy если указан
         if settings.proxy_url:
             kwargs["client_args"] = {"proxy": settings.proxy_url}
-        print(kwargs)
+
         model = ChatGoogleGenerativeAI(**kwargs)
         return model
 
+    def _route_query(self, state: InterviewAssistantState) -> Literal["retrieve_context", "off_topic"]:
+        """
+        Router: Определяет следующую ноду на основе классификации запроса
+        """
+        if state["is_interview_related"]:
+            return "retrieve_context"
+        else:
+            return "off_topic"
+
     def _init_graph(self) -> StateGraph:
         """Создаёт граф для хранения сообщений с Redis-чекпоинтом"""
-        checkpointer = RedisSaver(settings.redis_uri)
-        checkpointer.setup()
+        checkpointer = AsyncRedisSaver(settings.redis_uri)
+        # setup() будет вызван автоматически при первом использовании
 
-        builder = StateGraph(MessagesState)
-        builder.add_node("call_model", self._call_model)
-        builder.add_edge(START, "call_model")
+        # Создаем граф с кастомным состоянием
+        builder = StateGraph(InterviewAssistantState)
+
+        # Добавляем ноды
+        builder.add_node("classify_query", self._classify_query)
+        builder.add_node("retrieve_context", self._retrieve_context)
+        builder.add_node("answer_with_rag", self._answer_with_rag)
+        builder.add_node("off_topic", self._answer_off_topic)
+
+        # Настраиваем маршрутизацию
+        # START -> classify_query (классификация запроса)
+        builder.add_edge(START, "classify_query")
+
+        # classify_query -> conditional routing (по результату классификации)
+        builder.add_conditional_edges(
+            "classify_query",
+            self._route_query,
+            {
+                "retrieve_context": "retrieve_context",
+                "off_topic": "off_topic"
+            }
+        )
+
+        # retrieve_context -> answer_with_rag (получили контекст, генерируем ответ)
+        builder.add_edge("retrieve_context", "answer_with_rag")
+
+        # answer_with_rag -> END (завершаем работу)
+        builder.add_edge("answer_with_rag", END)
+
+        # off_topic -> END (завершаем работу)
+        builder.add_edge("off_topic", END)
 
         return builder.compile(checkpointer=checkpointer)
+    
+    def _get_user_query(self, state: InterviewAssistantState) -> str:
+        return next(
+            m.content for m in reversed(state["messages"])
+            if isinstance(m, HumanMessage)
+        )
 
     def _load_system_prompt(self) -> str:
         """Загружает system prompt из файла или использует по умолчанию"""
@@ -66,84 +139,127 @@ class LLMGraphMemoryWithRAG:
 
         # Prompt по умолчанию
         return """Ты - интеллектуальный ассистент для подготовки к собеседованиям.
+                Твоя задача - помогать пользователям готовиться к техническим собеседованиям,
+                давая четкие и полезные ответы на основе предоставленного контекста.
 
-Твоя задача - помогать пользователям готовиться к техническим собеседованиям,
-отвечая на их вопросы на основе предоставленного контекста.
+                Правила работы:
+                1. Анализируй весь предоставленный контекст и синтезируй из него единый, связный ответ
+                2. НЕ перечисляй документы в ответе (не пиши "в документе 1...", "в документе 2...")
+                3. Давай прямой, структурированный ответ на вопрос пользователя на основе документов
+                4. Используй примеры кода и конкретные детали из контекста
+                5. Если в контексте недостаточно информации, честно скажи об этом
+                6. Будь кратким и по делу, избегай лишних вступлений
+            """
 
-Правила работы:
-1. Всегда используй информацию из предоставленного контекста для формирования ответа
-2. Если в контексте недостаточно информации, честно скажи об этом
-3. Давай структурированные и понятные ответы
-4. Используй примеры кода, когда это уместно
-5. Будь дружелюбным и поддерживающим"""
 
-    def _call_model(self, state: MessagesState) -> Dict[str, Any]:
-        """Вызывается графом LangGraph при каждом шаге"""
-        trimmed_messages = trim_messages(
-            state["messages"],
-            strategy="last",
-            token_counter=count_tokens_approximately,
-            max_tokens=self.max_tokens,
-            start_on="human",
-            end_on=("human", "tool"),
-            include_system=True
+    async def _classify_query(self, state: InterviewAssistantState) -> Dict[str, Any]:
+        """
+        Node 1: Классифицирует запрос пользователя (structured output)
+        """
+
+        # Берём последний вопрос пользователя из messages
+        user_query = next(
+            m.content for m in reversed(state["messages"])
+            if isinstance(m, HumanMessage)
         )
 
-        response = self.model.invoke(trimmed_messages)
-        return {"messages": trimmed_messages + [response]}
+        system_prompt = f"""
+            Ты — классификатор пользовательских запросов.
 
-    async def _invoke_graph(self, user_id: str, new_messages: list) -> Dict[str, Any]:
-        """Вызывает граф в отдельном потоке"""
-        return await asyncio.to_thread(
-            self.graph.invoke,
-            {"messages": self.initial_state["messages"] + new_messages},
-            config={"configurable": {"thread_id": str(user_id)}},
+            Определи, относится ли вопрос к:
+            - техническим собеседованиям
+            - подготовке к интервью
+            - вопросам, которые задают на собеседованиях
+            - карьере в IT в контексте интервью
+
+            Ответь СТРОГО в формате JSON.
+            НЕ добавляй пояснений, текста или комментариев.
+        """
+
+        response = await self.router.ainvoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_query)
+        ])
+
+
+        return {
+            "is_interview_related": response.is_interview_related,
+            "messages": state["messages"],
+        }
+    
+    async def _retrieve_context(self, state: InterviewAssistantState) -> Dict[str, Any]:
+        """
+        Node 2a: Получает контекст из базы данных для вопросов о собеседованиях
+        """
+        user_query = self._get_user_query(state)
+        print(user_query)
+        print(self.top_k_documents)
+
+        documents = await self.db_client.retrieve_documents_async(
+            query=user_query,
+            top_k=self.top_k_documents
         )
-
-    async def _augment_with_context(self, user_message: str) -> str:
-        """
-        Дополняет сообщение пользователя контекстом из RAG
-
-        Args:
-            user_message: Исходное сообщение пользователя
-
-        Returns:
-            Дополненное сообщение с контекстом
-        """
         try:
-            documents = await self.db_client.retrieve_documents(
-                query=user_message,
-                top_k=self.top_k_documents
-            )
+            "\n\n".join(documents)
+        except:
+            print('doc err')
+            documents = []
 
-            if not documents:
-                return user_message
+        return {
+            "retrieved_context": "\n\n".join(documents) if documents else None
+        }
 
-            # Формируем контекст из документов
-            context = "\n\n".join([
-                f"Документ {i+1}:\n{doc}"
-                for i, doc in enumerate(documents)
-            ])
+    async def _answer_with_rag(self, state: InterviewAssistantState) -> Dict[str, Any]:
+        """
+        Node 2b: Генерирует ответ на основе контекста из RAG
+        """
+        user_query = self._get_user_query(state)
+        retrieved_context = state.get("retrieved_context")
+        messages = state["messages"]
 
-            # Дополняем исходное сообщение контекстом
-            augmented_message = f"""Контекст для ответа:
-{context}
+        if retrieved_context:
+            prompt = f"""Контекст для ответа:
+                {retrieved_context}
 
-Вопрос пользователя: {user_message}
+                Вопрос пользователя:
+                {user_query}
 
-Пожалуйста, ответь на вопрос, используя информацию из контекста выше."""
+                Ответь, используя контекст выше."""
+        else:
+            prompt = user_query
 
-            return augmented_message
+        response = await self.model.ainvoke(
+            [SystemMessage(content=self.system_prompt)] + [HumanMessage(content=prompt)]
+        )
 
-        except Exception as e:
-            # Если не удалось получить контекст, возвращаем исходное сообщение
-            print(f"Warning: Error retrieving context: {e}")
-            return user_message
+        return {"messages": messages + [response]}
+
+
+    def _answer_off_topic(self, state: InterviewAssistantState) -> Dict[str, Any]:
+        """
+        Node 3: Вежливо отказывает в помощи по темам не связанным с собеседованиями
+        """
+        messages = state["messages"]
+
+        off_topic_response = """Извини, но я специализируюсь только на помощи в подготовке к техническим собеседованиям.
+            Твой вопрос не относится к этой теме.
+
+            Я могу помочь тебе с:
+            • Подготовкой к техническим интервью
+            • Разбором вопросов с собеседований
+            • Объяснением концепций и технологий в контексте собеседований
+            • Советами по прохождению интервью
+
+            Задай, пожалуйста, вопрос, связанный с подготовкой к собеседованиям!"""
+
+        ai_response = AIMessage(content=off_topic_response)
+
+        return {"messages": messages + [ai_response]}
 
     async def ask(self, user_id: str, user_message: str) -> str:
         """
         Асинхронный метод: принимает текст пользователя,
-        дополняет его контекстом из RAG, возвращает ответ LLM.
+        определяет тему запроса и возвращает соответствующий ответ.
 
         Args:
             user_id: ID пользователя
@@ -152,16 +268,23 @@ class LLMGraphMemoryWithRAG:
         Returns:
             Ответ от LLM
         """
-        # Дополняем сообщение контекстом из RAG
-        augmented_message = await self._augment_with_context(user_message)
+        # Формируем начальное состояние для графа
+        initial_state = {
+            "messages": [
+                SystemMessage(content=self.system_prompt),
+                HumanMessage(content=user_message),
+            ],
+            "is_interview_related": None,
+            "retrieved_context": None,
+        }
 
-        # Создаем сообщение для LLM
-        new_message = HumanMessage(content=augmented_message)
+        # Вызываем граф асинхронно
+        result = await self.graph.ainvoke(
+            initial_state,
+            config={"configurable": {"thread_id": str(user_id)}}
+        )
 
-        # Получаем ответ от графа
-        result = await self._invoke_graph(user_id, [new_message])
-        print(result["messages"][-1].content)
-
+        # Возвращаем последнее сообщение от AI
         return result["messages"][-1].content
 
     async def reset_context(self, user_id: str) -> None:
@@ -174,7 +297,7 @@ class LLMGraphMemoryWithRAG:
         thread_id = str(user_id)
         checkpointer = self.graph.checkpointer
 
-        # Удаляем все старые чекпоинты
+        # Удаляем все старые чекпоинты (используем to_thread, т.к. delete_thread синхронный)
         await asyncio.to_thread(checkpointer.delete_thread, thread_id)
 
     async def close(self) -> None:
