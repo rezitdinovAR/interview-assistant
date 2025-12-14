@@ -284,8 +284,20 @@ class LLMGraphMemoryWithRAG:
             config={"configurable": {"thread_id": str(user_id)}}
         )
 
-        # Возвращаем последнее сообщение от AI
-        return result["messages"][-1].content
+        # Получаем последнее сообщение от AI
+        ai_message = result["messages"][-1]
+
+        # Обрабатываем случай, когда content - это список блоков (multimodal формат)
+        if isinstance(ai_message.content, list):
+            # Извлекаем текст из всех текстовых блоков
+            return "".join(
+                block.get("text", "")
+                for block in ai_message.content
+                if isinstance(block, dict) and block.get("type") == "text"
+            )
+        else:
+            # Если content - строка, возвращаем как есть
+            return ai_message.content
 
     async def reset_context(self, user_id: str) -> None:
         """
