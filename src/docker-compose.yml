@@ -60,3 +60,36 @@ services:
             - driver: nvidia
               device_ids: ['5']
               capabilities: [gpu]
+
+  redis:
+    image: redis/redis-stack:7.2.0-v9
+    container_name: redis
+    restart: unless-stopped
+    volumes:
+      - ./chat-service/redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  chat-service:
+    build: ./chat-service
+    container_name: chat-service
+    ports:
+      - "8084:8080"
+    restart: unless-stopped
+    volumes:
+      - ./chat-service:/workspace
+    environment:
+      - REDIS_URI=redis://redis:6379
+      - DB_SERVICE_URL=http://api:8080
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - PROXY_URL=${PROXY_URL:-}
+      - TOP_K_DOCUMENTS=5
+      - MAX_TOKENS=10000
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started

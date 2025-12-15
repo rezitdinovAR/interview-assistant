@@ -1,9 +1,9 @@
 import logging
 import uuid
 import os
-import json
+import uuid
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException
 from weaviate import Client
 
 from .utils import ensure_schema, embed_texts, rerank
