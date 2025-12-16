@@ -1,0 +1,6 @@
+aiogram
+pydantic_settings
+httpx
+markdown-it-py
+weasyprint
+loguru

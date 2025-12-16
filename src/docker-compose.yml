@@ -1,65 +1,4 @@
 services:
-  weaviate:
-    image: semitechnologies/weaviate:1.26.4
-    container_name: weaviate
-    ports:
-      - "8080:8080"
-      - "50051:50051"
-    restart: unless-stopped
-    volumes:
-      - ./db-service/data:/var/lib/weaviate
-    environment:
-      QUERY_DEFAULTS_LIMIT: 30
-      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
-      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
-  
-  api:
-    build: ./db-service
-    container_name: api
-    ports:
-      - "8083:8080"
-    restart: unless-stopped
-    volumes:
-      - ./db-service:/workspace
-    environment:
-      - EMBEDDING_URL=http://embedding:8000
-      - EMBEDDING_MODEL=Qwen3-Embedding-8B
-      - RERANKER_URL=http://reranking:8000
-      - RERANKER_MODEL=Qwen3-Reranker-8B
-      - WEAVIATE_URL=http://weaviate:8080
-    
-  
-  embedding:
-    build: ./embedding-service
-    container_name: embedding
-    ports:
-      - "8081:8000"
-    restart: unless-stopped
-    volumes:
-      - ./embedding-service/models:/root/.cache/huggingface
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['6']
-              capabilities: [gpu]
-  
-  reranking:
-    build: ./reranking-service
-    container_name: reranking
-    ports:
-      - "8082:8000"
-    restart: unless-stopped
-    volumes:
-      - ./reranking-service/models:/root/.cache/huggingface
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['5']
-              capabilities: [gpu]
 
   redis:
     image: redis/redis-stack:7.2.0-v9
@@ -72,6 +11,14 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.2"
+          memory: 256M
+        limits:
+          cpus: "0.4"
+          memory: 512M
 
   chat-service:
     build: ./chat-service
@@ -81,15 +28,37 @@ services:
     restart: unless-stopped
     volumes:
       - ./chat-service:/workspace
-    environment:
-      - REDIS_URI=redis://redis:6379
-      - DB_SERVICE_URL=http://api:8080
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      - PROXY_URL=${PROXY_URL:-}
-      - TOP_K_DOCUMENTS=5
-      - MAX_TOKENS=10000
+    env_file:
+      - .env
     depends_on:
       redis:
         condition: service_healthy
-      api:
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.15"
+          memory: 128M
+        limits:
+          cpus: "0.3"
+          memory: 256M
+
+  telegram-bot:
+    build: ./telegram-bot
+    container_name: telegram-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      chat-service:
         condition: service_started
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.15"
+          memory: 128M
+        limits:
+          cpus: "0.3"
+          memory: 256M
+
+volumes:
+  redis-data:
