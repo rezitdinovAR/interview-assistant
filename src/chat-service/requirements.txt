@@ -5,7 +5,7 @@ pydantic-settings
 httpx[socks]
 python-dotenv
 langchain-core
-langchain-google-genai
+langchain-openai
 langgraph
 langgraph-checkpoint-redis
 redis

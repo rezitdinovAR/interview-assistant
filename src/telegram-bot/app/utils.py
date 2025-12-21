@@ -1,3 +1,4 @@
+import ast
 import asyncio
 import re
 from functools import wraps
@@ -6,6 +7,40 @@ from aiogram.enums import ChatAction
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from markdown_it import MarkdownIt
+
+
+def clean_code(text: str) -> str:
+    """Очищает текст от md ```python ... ```"""
+    text = text.strip()
+    if text.startswith("```"):
+        # Убираем первую строку (```python)
+        text = text.split("\n", 1)[1] if "\n" in text else ""
+        # Убираем последнюю строку (```)
+        if text.endswith("```"):
+            text = text[:-3]
+    return text.strip()
+
+
+def is_looks_like_code(text: str) -> bool:
+    """
+    Эвристика: проверяем, похоже ли это на Python код.
+    """
+    keywords = ["def ", "class ", "import ", "return ", "print(", "if ", "for "]
+    # Слишком коротко, скорее всего не решение
+    if len(text) < 10:
+        return False
+
+    # Содержит ключевые слова
+    if any(k in text for k in keywords):
+        return True
+
+    # Попытка распарсить через AST
+    try:
+        ast.parse(text)
+        return True
+    except SyntaxError:
+        return any(k in text for k in keywords)
+
 
 md = MarkdownIt("commonmark", {"html": True})
 

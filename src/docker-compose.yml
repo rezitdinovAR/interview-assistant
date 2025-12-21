@@ -23,8 +23,6 @@ services:
   chat-service:
     build: ./chat-service
     container_name: chat-service
-    ports:
-      - "8084:8080"
     restart: unless-stopped
     volumes:
       - ./chat-service:/workspace
@@ -59,6 +57,18 @@ services:
         limits:
           cpus: "0.3"
           memory: 256M
+
+  leetcode-service:
+    build: ./leetcode-service
+    container_name: leetcode-service
+    restart: unless-stopped
+    ports:
+      - 8000:8000
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 128M 
 
 volumes:
   redis-data:

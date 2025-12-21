@@ -4,3 +4,4 @@ httpx
 markdown-it-py
 weasyprint
 loguru
+redis

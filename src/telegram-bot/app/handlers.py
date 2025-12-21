@@ -1,4 +1,5 @@
 import asyncio
+import json
 import re
 import uuid
 
@@ -12,6 +13,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.utils.markdown import html_decoration as hd
 from app.answers import PYTHON_DECORATORS
 from app.config import settings
+from app.redis_client import redis_client
 from app.templates import message_to_html
 from app.utils import (
     md_to_html,
@@ -55,7 +57,6 @@ async def process_user_request(
         user_id = str(message.from_user.id)
         payload = {"user_id": user_id, "message": user_text}
 
-        # Заглушка для теста
         if user_text.strip().lower() == "тест":
             response_data = {
                 "message": PYTHON_DECORATORS,
@@ -74,19 +75,20 @@ async def process_user_request(
             )
             return
 
-        # Сохраняем raw ответ
         original_text = response_data["message"]
         answer_key = f"msg:{user_id}:{uuid.uuid4()}"
-        await state.storage.set_data(key=answer_key, data={"text": original_text})
 
-        # Готовим кнопки
+        await redis_client.set(
+            answer_key, json.dumps({"text": original_text}), ex=3600
+        )
+
         builder = InlineKeyboardBuilder()
         follow_ups = response_data.get("follow_up_questions")
         if follow_ups:
             for question in follow_ups:
                 question_key = f"q:{user_id}:{uuid.uuid4()}"
-                await state.storage.set_data(
-                    key=question_key, data={"text": question}
+                await redis_client.set(
+                    question_key, json.dumps({"text": question}), ex=3600
                 )
                 builder.button(text=question, callback_data=question_key)
 
@@ -96,7 +98,6 @@ async def process_user_request(
         builder.adjust(1)
         keyboard = builder.as_markup()
 
-        # Отправка сообщения
         formatted_text = md_to_html(original_text)
         message_chunks = await split_long_message(formatted_text)
 
@@ -105,7 +106,6 @@ async def process_user_request(
             try:
                 await message.answer(chunk, reply_markup=reply_markup)
             except TelegramBadRequest as e:
-                # Если разметка ломается, отправляем как есть
                 if "can't parse entities" in str(e):
                     await message.answer(original_text, reply_markup=reply_markup)
                 else:
@@ -153,19 +153,19 @@ async def handle_export_callback(callback: types.CallbackQuery, state: FSMContex
 
     await callback.answer("Готовлю PDF-файл...")
 
-    message_data = await state.storage.get_data(key=message_key)
-    if not message_data or "text" not in message_data:
+    raw_data = await redis_client.get(message_key)
+
+    if not raw_data:
         await callback.message.answer(
             "Не удалось найти текст этого сообщения для экспорта. Возможно, он устарел."
         )
         return
 
+    message_data = json.loads(raw_data)
     original_text = message_data["text"]
 
-    # Конвертируем Markdown в HTML
     converted_html = md_to_pdf_html(original_text)
 
-    # Вставляем готовый HTML в шаблон
     html_for_pdf = message_to_html(converted_html)
 
     pdf_bytes = HTML(string=html_for_pdf).write_pdf()
@@ -186,23 +186,22 @@ async def handle_follow_up_callback(
 ):
     question_key = callback.data
 
-    question_data = await state.storage.get_data(key=question_key)
-    if not question_data or "text" not in question_data:
+    raw_data = await redis_client.get(question_key)
+
+    if not raw_data:
         await callback.answer(
             "Не удалось найти текст вопроса. Возможно, он устарел.",
             show_alert=True,
         )
         return
 
+    question_data = json.loads(raw_data)
     question_text = question_data["text"]
 
-    # Отвечаем на callback
     await callback.answer()
 
-    # Убираем кнопки под старым сообщением
     await callback.message.edit_reply_markup(reply_markup=None)
 
-    # Отправляем сообщение с вопросом от лица пользователя
     await callback.message.answer(
         f"<i>Вы выбрали вопрос:</i>\n\n {hd.quote(question_text)}"
     )

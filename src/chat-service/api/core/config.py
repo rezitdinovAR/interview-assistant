@@ -16,9 +16,10 @@ class Settings(BaseSettings):
     # DB Service
     db_service_url: str = "http://api:8080"
 
-    # Google Gemini
-    google_api_key: str
-    google_model: str = "gemini-flash-latest"
+    # LLM
+    llm_base_url: str
+    llm_api_key: str
+    llm_model_name: str
 
     # Proxy settings (optional)
     proxy_url: Optional[str] = None  # Format: socks5://user:pass@host:port or http://host:port

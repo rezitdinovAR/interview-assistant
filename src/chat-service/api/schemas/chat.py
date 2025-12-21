@@ -1,5 +1,6 @@
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
-from typing import Optional
 
 
 class ChatRequest(BaseModel):
@@ -13,7 +14,7 @@ class ChatRequest(BaseModel):
             "examples": [
                 {
                     "user_id": "user123",
-                    "message": "Что такое замыкание в JavaScript?"
+                    "message": "Что такое замыкание в JavaScript?",
                 }
             ]
         }
@@ -25,13 +26,18 @@ class ChatResponse(BaseModel):
 
     user_id: str = Field(..., description="ID пользователя")
     message: str = Field(..., description="Ответ от LLM")
+    sources: List[str] = []
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
                     "user_id": "user123",
-                    "message": "Замыкание (closure) в JavaScript..."
+                    "message": "Замыкание (closure) в JavaScript...",
+                    "sources": [
+                        "https://developer.mozilla.org/ru/docs/Web/JavaScript/Closures",
+                        "https://learn.javascript.ru/closure",
+                    ],
                 }
             ]
         }
@@ -43,15 +49,7 @@ class ResetRequest(BaseModel):
 
     user_id: str = Field(..., description="ID пользователя", min_length=1)
 
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "user_id": "user123"
-                }
-            ]
-        }
-    }
+    model_config = {"json_schema_extra": {"examples": [{"user_id": "user123"}]}}
 
 
 class StatusResponse(BaseModel):
@@ -62,11 +60,6 @@ class StatusResponse(BaseModel):
 
     model_config = {
         "json_schema_extra": {
-            "examples": [
-                {
-                    "status": "OK",
-                    "message": "Context has been reset"
-                }
-            ]
+            "examples": [{"status": "OK", "message": "Context has been reset"}]
         }
     }
