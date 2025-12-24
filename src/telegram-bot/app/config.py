@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     redis_uri: str = "redis://redis:6379/0"
 
     admin_ids: str = ""
+    whitelist_ids: str = ""
 
     limit_user_per_hour: int = 10
     limit_bot_per_hour: int = 50
@@ -27,6 +28,12 @@ class Settings(BaseSettings):
         if not self.admin_ids:
             return []
         return [int(x.strip()) for x in self.admin_ids.split(",") if x.strip()]
+
+    @property
+    def get_whitelist_ids(self) -> List[int]:
+        if not self.whitelist_ids:
+            return []
+        return [int(x.strip()) for x in self.whitelist_ids.split(",") if x.strip()]
 
 
 @lru_cache()

@@ -42,6 +42,12 @@ import heapq
 # --- User Code ---
 {user_code}
 
+try:
+    if 'Solution' in globals():
+        sol = Solution()
+except Exception:
+    pass
+
 # --- Test Code ---
 if __name__ == "__main__":
     try:

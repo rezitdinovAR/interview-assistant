@@ -7,13 +7,13 @@ router = Router()
 
 def get_rank(problems: int, interviews: int, questions: int) -> str:
     score = problems * 2 + interviews * 5 + 0.5 * questions
-    if score < 10:
+    if score < 3:
         return "Intern 🐣"
-    if score < 20:
+    if score < 5:
         return "Junior 👶"
-    if score < 50:
+    if score < 9:
         return "Middle 😈"
-    if score < 100:
+    if score < 13:
         return "Senior 🦁"
     return "Tech Lead 👑"
 
@@ -48,8 +48,6 @@ async def cmd_profile(message: types.Message):
         f"💬 <b>Вопросов разобрано:</b> {questions}\n\n"
         f"<i>Продолжай тренироваться!</i>"
     )
-
-    await message.answer(text, parse_mode="HTML")
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[

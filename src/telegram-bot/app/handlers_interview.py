@@ -1,16 +1,16 @@
+import asyncio
 import json
 
 from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
 from app.keyboards import (
     get_cancel_menu,
-    get_deep_dive_keyboard,
     get_main_menu,
     get_persona_keyboard,
 )
 from app.redis_client import redis_client
 from app.states import InterviewState
-from app.utils import llm_chat
+from app.utils import llm_chat, typing_loop
 
 router = Router()
 
@@ -119,6 +119,7 @@ async def process_answer(message: types.Message, state: FSMContext):
         f'Верни JSON: {{"is_answer": true}} или {{"is_answer": false}}'
     )
 
+    typing_task = asyncio.create_task(typing_loop(message.bot, message.chat.id))
     # Для классификации используем системный вызов
     try:
         class_resp = await llm_chat("system_classifier", classification_prompt)
@@ -129,53 +130,62 @@ async def process_answer(message: types.Message, state: FSMContext):
     except Exception:
         # Если классификатор упал, считаем ответом
         is_answer = True
+    finally:
+        typing_task.cancel()
 
     # --- СЦЕНАРИЙ 1: ЭТО ВОПРОС / ПРОСЬБА ПОМОЩИ ---
     if not is_answer:
-        await message.bot.send_chat_action(message.chat.id, "typing")
-
-        help_prompt = (
-            f"Мы на собеседовании. Я задал вопрос: '{current_q}'. "
-            f"Кандидат пишет: '{user_input}'. "
-            f"Ответь ему в роли {data.get('persona', 'friendly')} интервьюера. "
-            f"Можешь дать подсказку, объяснить термин или переформулировать вопрос. "
-            f"Не давай полный правильный ответ сразу, подтолкни к мыслям."
+        typing_task = asyncio.create_task(
+            typing_loop(message.bot, message.chat.id)
         )
 
-        help_response = await llm_chat(
-            str(message.from_user.id),
-            help_prompt,
-            instruction=PERSONA_PROMPTS[data.get("persona", "friendly")],
-        )
+        try:
+            help_prompt = (
+                f"Мы на собеседовании. Я задал вопрос: '{current_q}'. "
+                f"Кандидат пишет: '{user_input}'. "
+                f"Ответь ему в роли {data.get('persona', 'friendly')} интервьюера. "
+                f"Можешь дать подсказку, объяснить термин или переформулировать вопрос. "
+                f"Не давай полный правильный ответ сразу, подтолкни к мыслям."
+            )
 
-        await message.answer(help_response)
-        return
+            help_response = await llm_chat(
+                str(message.from_user.id),
+                help_prompt,
+                instruction=PERSONA_PROMPTS[data.get("persona", "friendly")],
+            )
+
+            await message.answer(help_response)
+            return
+        finally:
+            typing_task.cancel()
 
     # --- СЦЕНАРИЙ 2: ЭТО ОТВЕТ НА ВОПРОС ---
 
-    await message.bot.send_chat_action(message.chat.id, "typing")
-
-    eval_prompt = (
-        f"Question: {current_q}\nUser Answer: {user_input}\n"
-        f"Give feedback on the answer based on your persona. Be brief."
-    )
-
-    feedback = await llm_chat(
-        str(message.from_user.id),
-        eval_prompt,
-        instruction=PERSONA_PROMPTS[data.get("persona", "friendly")],
-    )
-
-    await redis_client.incr(f"stats:user:{message.from_user.id}:questions")
-    await message.answer(feedback, reply_markup=get_deep_dive_keyboard())
-
-    next_step = step + 1
-    if next_step < len(plan):
-        await state.update_data(current_step=next_step)
-        await message.answer(
-            f"➡️ <b>Вопрос {next_step + 1}:</b>\n{plan[next_step]}",
-            parse_mode="HTML",
+    typing_task = asyncio.create_task(typing_loop(message.bot, message.chat.id))
+    try:
+        eval_prompt = (
+            f"Question: {current_q}\nUser Answer: {user_input}\n"
+            f"Give feedback on the answer based on your persona. Be brief. Do not make any questions."
         )
-    else:
-        await message.answer("🏁 Собеседование завершено!")
-        await state.clear()
+
+        feedback = await llm_chat(
+            str(message.from_user.id),
+            eval_prompt,
+            instruction=PERSONA_PROMPTS[data.get("persona", "friendly")],
+        )
+
+        await redis_client.incr(f"stats:user:{message.from_user.id}:questions")
+        await message.answer(feedback)
+
+        next_step = step + 1
+        if next_step < len(plan):
+            await state.update_data(current_step=next_step)
+            await message.answer(
+                f"➡️ <b>Вопрос {next_step + 1}:</b>\n{plan[next_step]}",
+                parse_mode="HTML",
+            )
+        else:
+            await message.answer("🏁 Собеседование завершено!")
+            await state.clear()
+    finally:
+        typing_task.cancel()

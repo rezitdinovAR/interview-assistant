@@ -1,3 +1,4 @@
+import asyncio
 import html
 import json
 
@@ -10,20 +11,20 @@ from aiogram.utils.markdown import hbold, hcode
 from app.config import settings
 from app.keyboards import (
     get_cancel_menu,
-    get_categories_keyboard,
-    get_deep_dive_keyboard,
     get_difficulty_keyboard,
     get_main_menu,
     get_problems_list_keyboard,
 )
 from app.redis_client import redis_client
 from app.states import LeetCodeState
-from app.utils import is_looks_like_code, llm_chat, update_user_memory
+from app.utils import is_looks_like_code, llm_chat, typing_loop, update_user_memory
 
 router = Router()
 
 
-# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (active problem) ---
+# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+
+
 async def save_active_problem(user_id: str, problem_data: dict):
     await redis_client.set(
         f"user:{user_id}:active_problem", json.dumps(problem_data)
@@ -39,44 +40,71 @@ async def clear_active_problem(user_id: str):
     await redis_client.delete(f"user:{user_id}:active_problem")
 
 
-# --- МЕНЮ LEETCODE ---
+# --- МЕНЮ LEETCODE И НАВИГАЦИЯ ---
 
 
 @router.message(F.text == "🧠 LeetCode Тренировка")
 async def leetcode_entry(message: types.Message, state: FSMContext):
-    """Точка входа: проверяем активную задачу или показываем категории"""
-    user_id = str(message.from_user.id)
-    active_problem = await get_active_problem(user_id)
-
-    if active_problem:
-        text = f"У вас есть незаконченная задача: <b>{active_problem['problem_title']}</b>."
-        builder = InlineKeyboardBuilder()
-        builder.row(
-            InlineKeyboardButton(text="▶️ Продолжить", callback_data="task:resume")
-        )
-        builder.row(
-            InlineKeyboardButton(text="📂 Список задач", callback_data="lc:menu")
-        )
-        await message.answer(
-            text, reply_markup=builder.as_markup(), parse_mode="HTML"
-        )
-    else:
-        await message.answer(
-            "Выберите категорию задач:", reply_markup=get_categories_keyboard()
-        )
+    """Точка входа. Перенаправляем на логику показа категорий."""
+    # Удаляем Reply клавиатуру, чтобы она не мешала Inline меню
+    await message.answer(
+        "Загружаю меню задач...", reply_markup=types.ReplyKeyboardRemove()
+    )
+    await show_categories_logic(message, is_edit=False)
 
 
 @router.callback_query(F.data == "lc:menu")
 async def show_categories(callback: types.CallbackQuery):
-    """Показывает список категорий (Algorithms, Pandas...)"""
-    await callback.message.edit_text(
-        "Выберите категорию задач:", reply_markup=get_categories_keyboard()
-    )
+    """Возврат в меню категорий (редактирование сообщения)."""
+    await show_categories_logic(callback.message, is_edit=True)
+
+
+async def show_categories_logic(message: types.Message, is_edit: bool):
+    """
+    Отображает категории задач.
+    Если есть активная задача — добавляет кнопку возврата к ней.
+    """
+    user_id = str(message.chat.id)
+    active_problem = await get_active_problem(user_id)
+
+    builder = InlineKeyboardBuilder()
+
+    # 1. Если есть незаконченная задача — кнопка возврата идет первой
+    if active_problem:
+        title = active_problem.get("problem_title", "Задача")
+        # Обрезаем слишком длинные названия для кнопки
+        if len(title) > 25:
+            title = title[:22] + "..."
+
+        builder.row(
+            InlineKeyboardButton(
+                text=f"▶️ Вернуться: {title}", callback_data="task:resume"
+            )
+        )
+
+    # 2. Стандартные категории
+    categories = [
+        ("Algorithms", "algorithms"),
+        ("Pandas (DataFrames)", "pandas"),
+        ("Database (SQL)", "database"),
+    ]
+
+    for name, slug in categories:
+        builder.row(
+            InlineKeyboardButton(text=f"📂 {name}", callback_data=f"lc:cat:{slug}")
+        )
+
+    text = "Выберите категорию задач:"
+
+    if is_edit:
+        await message.edit_text(text, reply_markup=builder.as_markup())
+    else:
+        await message.answer(text, reply_markup=builder.as_markup())
 
 
 @router.callback_query(F.data.startswith("lc:cat:"))
 async def show_difficulty(callback: types.CallbackQuery):
-    """Показывает выбор сложности для категории"""
+    """Выбор сложности внутри категории"""
     category = callback.data.split(":")[2]
     await callback.message.edit_text(
         f"Категория: <b>{category.capitalize()}</b>\nВыберите сложность:",
@@ -87,15 +115,10 @@ async def show_difficulty(callback: types.CallbackQuery):
 
 @router.callback_query(F.data.startswith("lc:diff:"))
 async def init_list(callback: types.CallbackQuery):
-    """Инициализация списка (переход на первую страницу)"""
-    # lc:diff:algorithms:EASY
+    """Инициализация списка задач (первая страница)"""
     parts = callback.data.split(":")
     category = parts[2]
     difficulty = parts[3]
-
-    # Перенаправляем на логику списка с offset=0
-    # Просто вызываем ту же функцию, но формируем data вручную или вызываем напрямую
-    # Проще всего вызвать функцию отрисовки списка
     await render_problem_list(
         callback.message, category, difficulty, 0, is_edit=True
     )
@@ -103,8 +126,7 @@ async def init_list(callback: types.CallbackQuery):
 
 @router.callback_query(F.data.startswith("lc:list:"))
 async def paginate_list(callback: types.CallbackQuery):
-    """Пагинация списка"""
-    # lc:list:algorithms:EASY:10
+    """Пагинация списка задач"""
     parts = callback.data.split(":")
     category = parts[2]
     difficulty = parts[3]
@@ -122,7 +144,7 @@ async def render_problem_list(
     offset: int,
     is_edit: bool = True,
 ):
-    """Общая функция отрисовки списка"""
+    """Загрузка и отрисовка списка задач через API"""
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
@@ -158,14 +180,66 @@ async def render_problem_list(
             await message.answer(err_text)
 
 
-# --- ЗАПУСК ЗАДАЧИ ИЗ СПИСКА ---
+# --- ЗАПУСК ЗАДАЧИ И ПРОВЕРКА КОНФЛИКТОВ ---
 
 
 @router.callback_query(F.data.startswith("solve:"))
-async def start_problem_from_list(
-    callback: types.CallbackQuery, state: FSMContext
-):
+async def start_problem_check(callback: types.CallbackQuery, state: FSMContext):
+    """
+    Пользователь выбрал задачу из списка.
+    Проверяем, нет ли уже активной задачи.
+    """
     slug = callback.data.split(":")[1]
+    user_id = str(callback.from_user.id)
+
+    active_problem = await get_active_problem(user_id)
+
+    # Если есть активная задача И это не та же самая, которую мы выбираем
+    if active_problem and active_problem.get("problem_slug") != slug:
+        builder = InlineKeyboardBuilder()
+        builder.row(
+            InlineKeyboardButton(
+                text="⚠️ Начать новую (стереть прогресс)",
+                callback_data=f"force_solve:{slug}",
+            )
+        )
+        builder.row(
+            InlineKeyboardButton(text="🔙 Отмена", callback_data="lc:menu")
+        )
+
+        await callback.message.edit_text(
+            f"⚠️ <b>Внимание!</b>\n\nУ вас есть незавершенная задача: <b>{active_problem['problem_title']}</b>.\n"
+            f"Если вы начнете новую задачу, прогресс текущей будет потерян.",
+            reply_markup=builder.as_markup(),
+            parse_mode="HTML",
+        )
+        await callback.answer()
+        return
+
+    # Если конфликтов нет — загружаем задачу
+    await load_and_start_problem(callback, slug, state)
+
+
+@router.callback_query(F.data.startswith("force_solve:"))
+async def force_start_problem(callback: types.CallbackQuery, state: FSMContext):
+    """
+    Пользователь подтвердил сброс старой задачи.
+    """
+    slug = callback.data.split(":")[1]
+    user_id = str(callback.from_user.id)
+
+    # Сбрасываем старую
+    await clear_active_problem(user_id)
+    await state.clear()
+
+    # Загружаем новую
+    await load_and_start_problem(callback, slug, state)
+
+
+async def load_and_start_problem(
+    callback: types.CallbackQuery, slug: str, state: FSMContext
+):
+    """Общая логика загрузки задачи с API и установки стейта"""
     await callback.answer()
     await callback.message.edit_text("⏳ Загружаю задачу...")
 
@@ -185,38 +259,42 @@ async def start_problem_from_list(
         await callback.message.edit_text(f"Не удалось загрузить задачу: {e}")
 
 
-# --- RESUME TASK ---
+# --- ВОССТАНОВЛЕНИЕ (RESUME) ЗАДАЧИ ---
 
 
 @router.callback_query(F.data == "task:resume")
 async def resume_problem(callback: types.CallbackQuery, state: FSMContext):
     user_id = str(callback.from_user.id)
     problem = await get_active_problem(user_id)
+
     if not problem:
-        await callback.message.edit_text("Не удалось восстановить задачу.")
+        await callback.answer("Не удалось найти активную задачу.", show_alert=True)
         # Возвращаем в меню категорий
         await show_categories(callback)
         return
+
     await state.update_data(**problem)
     await state.set_state(LeetCodeState.solving_problem)
 
-    await callback.message.edit_text(
-        f"🔄 Возвращаемся к задаче: <b>{problem['problem_title']}</b>",
+    # Удаляем меню выбора, чтобы не засорять чат, и отправляем новое сообщение с Reply-кнопкой
+    await callback.message.delete()
+
+    await callback.message.answer(
+        f"🔄 Возвращаемся к задаче: <b>{problem['problem_title']}</b>\n"
+        f"Ссылка: {problem.get('problem_link', '')}\n\n"
+        f"Код:\n{hcode(problem['initial_code'])}",
+        reply_markup=get_cancel_menu(),
         parse_mode="HTML",
     )
-    await callback.message.answer(
-        f"{hbold(problem['problem_title'])}\n\nСсылка: {problem.get('problem_link', '')}\n\nКод:\n{hcode(problem['initial_code'])}",
-        reply_markup=get_cancel_menu(),
-    )
 
 
-# --- ОБЩАЯ ЛОГИКА СТЕЙТА ---
+# --- НАСТРОЙКА СТЕЙТА (ОБЩАЯ) ---
 
 
 async def setup_problem_state(
     message: types.Message, state: FSMContext, problem: dict
 ):
-    user_id = str(message.from_user.id)
+    user_id = str(message.chat.id)  # Используем chat.id для надежности в message
     state_data = {
         "problem_title": problem["title"],
         "problem_slug": problem["slug"],
@@ -232,8 +310,16 @@ async def setup_problem_state(
         f"{hbold(problem['title'])}\n\nСсылка: {problem['link']}\n\n"
         f"Отправьте решение (код функции) в ответ на это сообщение.\nШаблон:\n{hcode(problem['initial_code'])}"
     )
-    # Если вызываем из callback (message был edit), то нужно отправлять новое сообщение, а не редактировать
-    # Поэтому просто send_message всегда безопаснее для старта задачи
+
+    # Если мы пришли из callback (inline), то нам нужно отправить НОВОЕ сообщение с Reply клавиатурой
+    # Если мы редактируем message, то Reply клавиатура не появится.
+    # Поэтому всегда делаем send_message.
+    if isinstance(message, types.Message):
+        # Если message был отредактирован (через edit_text), он все еще Message, но лучше удалить старое "Загружаю..."
+        # Однако, удалять сообщение, на которое пользователь нажал, может быть плохим UX (дергается экран).
+        # Просто отправим новое вниз.
+        pass
+
     await message.bot.send_message(
         chat_id=message.chat.id, text=text, reply_markup=get_cancel_menu()
     )
@@ -244,9 +330,14 @@ async def setup_problem_state(
 
 @router.message(LeetCodeState.solving_problem)
 async def process_solution(message: types.Message, state: FSMContext):
+    """
+    Обработка текста/голоса с решением или вопросом.
+    """
     if message.text == "❌ Выйти в меню":
         await message.answer("Выход в меню...", reply_markup=get_main_menu())
         await state.clear()
+        # Активная задача в Redis остается (не вызываем clear_active_problem),
+        # чтобы пользователь мог вернуться позже через кнопку "Resume".
         return
 
     user_text = message.text or ""
@@ -255,26 +346,31 @@ async def process_solution(message: types.Message, state: FSMContext):
 
     # --- ЭВРИСТИКА: КОД ИЛИ ВОПРОС? ---
     if not is_looks_like_code(user_text):
-        await message.bot.send_chat_action(message.chat.id, "typing")
-        prompt = (
-            f"Пользователь решает задачу LeetCode: '{problem_title}'. "
-            f"Текущий контекст задачи: {data.get('problem_link')}. "
-            f"Вопрос пользователя: '{user_text}'. "
-            f"Дай подсказку или объясни тему, но НЕ пиши полное решение кода, если тебя прямо не попросили."
+        typing_task = asyncio.create_task(
+            typing_loop(message.bot, message.chat.id)
         )
-        # ИСПРАВЛЕНО: используем llm_chat
-        answer = await llm_chat(str(message.from_user.id), prompt)
+        try:
+            prompt = (
+                f"Пользователь решает задачу LeetCode: '{problem_title}'. "
+                f"Текущий контекст задачи: {data.get('problem_link')}. "
+                f"Вопрос пользователя: '{user_text}'. "
+                f"Дай подсказку или объясни тему, но НЕ пиши полное решение кода, если тебя прямо не попросили."
+            )
 
-        await update_user_memory(
-            str(message.from_user.id),
-            f"Задал вопрос по задаче {problem_title}: {user_text}",
-        )
-        await message.answer(
-            f"🤖 <b>Подсказка:</b>\n\n{answer}", parse_mode="HTML"
-        )
-        return
+            answer = await llm_chat(str(message.from_user.id), prompt)
 
-    # Проверка кода
+            await update_user_memory(
+                str(message.from_user.id),
+                f"Задал вопрос по задаче {problem_title}: {user_text}",
+            )
+            await message.answer(
+                f"🤖 <b>Подсказка:</b>\n\n{answer}", parse_mode="HTML"
+            )
+            return
+        finally:
+            typing_task.cancel()
+
+    # --- ПРОВЕРКА КОДА ---
     problem_content = data.get("problem_content")
     msg = await message.answer("⏳ Проверяю решение...")
 
@@ -287,10 +383,10 @@ async def process_solution(message: types.Message, state: FSMContext):
     )
 
     try:
-        # ИСПРАВЛЕНО: используем llm_chat
         generated_tests = await llm_chat("system_test_gen", llm_test_gen_prompt)
-        generated_tests = generated_tests.replace("```python", "").replace(
-            "```", ""
+        # Очистка от markdown
+        generated_tests = (
+            generated_tests.replace("```python", "").replace("```", "").strip()
         )
 
         async with httpx.AsyncClient() as client:
@@ -307,18 +403,23 @@ async def process_solution(message: types.Message, state: FSMContext):
             await redis_client.sadd(
                 f"history:user:{user_id}:solved", data.get("problem_slug")
             )
+
+            # Задача решена успешно, удаляем из активных
             await clear_active_problem(user_id)
+
             await update_user_memory(
                 user_id,
                 f"Пользователь успешно решил задачу '{problem_title}'. Код был верным.",
             )
             await msg.edit_text(
-                f"✅ {hbold('Решение принято!')}\n\nВсе тесты пройдены."
-            )
-            await message.answer(
-                "Хотите разобрать решение?", reply_markup=get_deep_dive_keyboard()
+                f"✅ {hbold('Решение принято!')}\n\nВсе тесты пройдены"
             )
             await state.clear()
+            # Можно вернуть главное меню
+            await message.answer(
+                "Выберите действие:", reply_markup=get_main_menu()
+            )
+
         else:
             error_msg = exec_result.get("error") or exec_result.get("output")
             stage = exec_result.get("stage", "runtime")
@@ -335,7 +436,6 @@ async def process_solution(message: types.Message, state: FSMContext):
             )
 
             analysis_prompt = f"Problem: {problem_title}\nCode:\n{user_text}\nError:\n{error_msg}\nExplain the error and give a hint."
-            # ИСПРАВЛЕНО: используем llm_chat
             hint = await llm_chat(str(message.from_user.id), analysis_prompt)
 
             await update_user_memory(
@@ -345,4 +445,4 @@ async def process_solution(message: types.Message, state: FSMContext):
             await message.answer(hint)
 
     except Exception as e:
-        await msg.edit_text(f"Произошла ошибка: {e}")
+        await msg.edit_text(f"Произошла ошибка проверки: {e}")
