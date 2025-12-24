@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     admin_ids: str = ""
     whitelist_ids: str = ""
 
-    limit_user_per_hour: int = 10
-    limit_bot_per_hour: int = 50
+    limit_user_per_hour: int = 120
+    limit_bot_per_hour: int = 600
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

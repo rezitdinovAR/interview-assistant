@@ -68,8 +68,6 @@ services:
     build: ./leetcode-service
     container_name: leetcode-service
     restart: unless-stopped
-    ports:
-      - 8000:8001
     deploy:
       resources:
         limits:
