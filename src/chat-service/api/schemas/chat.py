@@ -63,3 +63,19 @@ class StatusResponse(BaseModel):
             "examples": [{"status": "OK", "message": "Context has been reset"}]
         }
     }
+
+
+class ProfileUpdateRequest(BaseModel):
+    user_id: str = Field(..., min_length=1)
+    activity_description: str = Field(..., min_length=1)
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "user_id": "user123",
+                    "activity_description": "Решил задачу Two Sum с первой попытки",
+                }
+            ]
+        }
+    }

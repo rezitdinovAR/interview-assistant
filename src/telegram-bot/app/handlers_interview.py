@@ -11,6 +11,7 @@ from app.keyboards import (
 )
 from app.redis_client import redis_client
 from app.states import InterviewState
+from app.utils import update_user_memory
 
 router = Router()
 
@@ -154,6 +155,12 @@ async def process_answer(message: types.Message, state: FSMContext):
         )
     else:
         await redis_client.incr(f"stats:user:{message.from_user.id}:interviews")
+
+        await update_user_memory(
+            str(message.from_user.id),
+            f"Пользователь прошел симуляцию интервью по теме '{data.get('topic', 'Unknown')}'. Стиль: {data.get('persona')}.",
+        )
+
         await message.answer(
             "🏁 <b>Собеседование завершено!</b>\nВы отлично держались.",
             reply_markup=get_cancel_menu(),

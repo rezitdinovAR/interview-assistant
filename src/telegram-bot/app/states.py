@@ -7,6 +7,7 @@ class MainState(StatesGroup):
 
 class LeetCodeState(StatesGroup):
     menu = State()  # Выбор типа задачи
+    search = State()  # Ввод поискового запроса
     solving_problem = State()  # Ждем код решения
 
 

@@ -135,13 +135,24 @@ class LLMGraphMemoryWithRAG:
             user_query = ""
 
         system_prompt = """
-            Ты - классификатор пользовательских запросов.
-            Определи, относится ли вопрос к:
-            - техническим собеседованиям
-            - подготовке к интервью
-            - вопросам, которые задают на собеседованиях
-            - карьере в IT в контексте интервью
-            Ответь СТРОГО в формате JSON.
+            Ты — классификатор запросов для технического ассистента.
+            Твоя задача — определить, относится ли вопрос пользователя к сфере IT, программирования и подготовки к собеседованиям.
+
+            КАТЕГОРИИ "INTERVIEW_RELATED" (True):
+            - Алгоритмы и структуры данных (LeetCode, сортировки, деревья).
+            - Языки программирования (Python, Java, C++, syntax, features).
+            - Machine Learning, Deep Learning, Data Science (Grid Search, Backprop, NLP, CV).
+            - System Design (High Load, базы данных, кэширование, микросервисы).
+            - DevOps, CI/CD, Linux, сети.
+            - Soft Skills вопросы для собеседований.
+            - Вопросы "Что такое X?", "Как работает Y?", "В чем разница между A и B?".
+
+            КАТЕГОРИИ "OFF_TOPIC" (False):
+            - Погода, новости, политика.
+            - Личные вопросы, не связанные с карьерой.
+            - Вопросы про покупку товаров, игры (не разработку), развлечения.
+
+            Ответь СТРОГО в формате JSON: {"is_interview_related": true/false}.
         """
 
         response = await self.router.ainvoke(
@@ -204,13 +215,29 @@ class LLMGraphMemoryWithRAG:
 
     async def ask(self, user_id: str, user_message: str) -> str:
         if not self.graph:
-            raise RuntimeError(
-                "LLM Service not initialized. Please wait for startup."
-            )
+            raise RuntimeError("LLM Service not initialized.")
 
+        # Получаем профиль пользователя
+        user_profile = "Неизвестный пользователь"
+        if self.redis_client:
+            data = await self.redis_client.get(f"user_profile:{user_id}")
+            if data:
+                user_profile = data
+
+        # Формируем персонализированный системный промпт
+        personal_system_prompt = f"""
+        {self.system_prompt}
+        
+        ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ (ПОРТРЕТ):
+        {user_profile}
+        
+        Адаптируй ответ под уровень и интересы этого пользователя.
+        """
+
+        # Запускаем граф
         initial_state = {
             "messages": [
-                SystemMessage(content=self.system_prompt),
+                SystemMessage(content=personal_system_prompt),
                 HumanMessage(content=user_message),
             ],
             "is_interview_related": None,
@@ -222,12 +249,11 @@ class LLMGraphMemoryWithRAG:
         )
 
         ai_message = result["messages"][-1]
-
         if isinstance(ai_message.content, list):
             return "".join(
                 block.get("text", "")
                 for block in ai_message.content
-                if isinstance(block, dict) and block.get("type") == "text"
+                if block.get("type") == "text"
             )
         else:
             return ai_message.content
@@ -241,6 +267,56 @@ class LLMGraphMemoryWithRAG:
                 "retrieved_context": None,
             }
             await self.graph.aupdate_state(config, empty_state)
+
+    async def update_user_profile(self, user_id: str, recent_activity: str):
+        """
+        Анализирует последнее действие и обновляет портрет пользователя.
+        """
+        if not self.redis_client:
+            return
+
+        profile_key = f"user_profile:{user_id}"
+        current_profile = await self.redis_client.get(profile_key)
+        current_profile = (
+            current_profile
+            if current_profile
+            else "Новый пользователь. Уровень и интересы пока не известны."
+        )
+
+        # Промпт для "Психолога/Ментора"
+        profiler_prompt = f"""
+        Ты — аналитик навыков разработчика. Твоя задача — поддерживать актуальный краткий портрет пользователя.
+        
+        ТЕКУЩИЙ ПОРТРЕТ:
+        {current_profile}
+        
+        НОВОЕ СОБЫТИЕ/ДЕЙСТВИЕ:
+        {recent_activity}
+        
+        ЗАДАЧА:
+        Обнови портрет. Учти:
+        1. Стек технологий (Python, Java, etc).
+        2. Уровень знаний (Junior, Middle...).
+        3. Слабые места (где ошибается).
+        4. Сильные стороны.
+        5. Стиль общения (любит кратко или подробно).
+        
+        Верни ТОЛЬКО обновленный текст портрета (2-3 предложения). Не пиши вступлений.
+        """
+
+        try:
+            # Используем ту же модель, но с другим промптом
+            response = await self.model.ainvoke(
+                [HumanMessage(content=profiler_prompt)]
+            )
+            new_profile = response.content
+
+            # Сохраняем обновленный профиль
+            await self.redis_client.set(profile_key, new_profile)
+            return new_profile
+        except Exception as e:
+            print(f"Error updating profile: {e}")
+            return current_profile
 
     async def close(self) -> None:
         await self.db_client.close()

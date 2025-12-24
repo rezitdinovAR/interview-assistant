@@ -31,6 +31,12 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     deploy:
       resources:
         reservations:
@@ -48,7 +54,7 @@ services:
       - .env
     depends_on:
       chat-service:
-        condition: service_started
+        condition: service_healthy
     deploy:
       resources:
         reservations:

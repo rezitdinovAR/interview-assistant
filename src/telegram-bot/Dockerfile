@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y \
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    XDG_CACHE_HOME=/app/.cache
 
 WORKDIR /app
 
@@ -27,6 +28,7 @@ COPY . .
 
 RUN groupadd -r appuser && \
     useradd -r -g appuser appuser && \
+    mkdir -p /app/.cache && \
     chown -R appuser:appuser /app
 
 USER appuser

@@ -3,10 +3,26 @@ import asyncio
 import re
 from functools import wraps
 
+import httpx
 from aiogram.enums import ChatAction
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
+from app.config import settings
+from loguru import logger
 from markdown_it import MarkdownIt
+
+http_client = httpx.AsyncClient(timeout=60.0)
+
+
+async def update_user_memory(user_id: str, text: str):
+    """Фоновая задача для обновления памяти"""
+    try:
+        await http_client.post(
+            f"{settings.chat_service_url}/api/v1/profile/update",
+            json={"user_id": user_id, "activity_description": text},
+        )
+    except Exception as e:
+        logger.error(f"Failed to update memory: {e}")
 
 
 def clean_code(text: str) -> str:

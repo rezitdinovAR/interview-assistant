@@ -20,6 +20,7 @@ from app.utils import (
     md_to_pdf_html,
     split_long_message,
     typing_loop,
+    update_user_memory,
     with_typing,
 )
 from loguru import logger
@@ -74,6 +75,11 @@ async def process_user_request(
                 "Извини, не могу сейчас ответить. Попробуй позже."
             )
             return
+
+        await update_user_memory(
+            user_id,
+            f"Запрос от пользователя: {user_text}\nОтвет ассистента: {response_data['message']}",
+        )
 
         original_text = response_data["message"]
         answer_key = f"msg:{user_id}:{uuid.uuid4()}"
