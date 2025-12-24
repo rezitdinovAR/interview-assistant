@@ -7,8 +7,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     telegram_bot_token: str
 
-    chat_service_url: str = "http://chat-service:8080"
-    leetcode_service_url: str = "http://leetcode-service:8000"
+    chat_service_url: str = "http://chat-service:8000"
+    leetcode_service_url: str = "http://leetcode-service:8001"
+    transcribe_service_url: str = "http://transcribe-service:8002"
 
     redis_uri: str = "redis://redis:6379/0"
 

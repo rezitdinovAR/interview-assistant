@@ -32,7 +32,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -69,12 +69,24 @@ services:
     container_name: leetcode-service
     restart: unless-stopped
     ports:
-      - 8000:8000
+      - 8000:8001
     deploy:
       resources:
         limits:
           cpus: "0.50"
-          memory: 128M 
+          memory: 128M
+
+  transcribe-service:
+      build: ./transcribe-service
+      container_name: transcribe-service
+      restart: unless-stopped
+      environment:
+        - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      deploy:
+        resources:
+          limits:
+            cpus: "0.5"
+            memory: 256M
 
 volumes:
   redis-data:

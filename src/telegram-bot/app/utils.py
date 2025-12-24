@@ -14,6 +14,29 @@ from markdown_it import MarkdownIt
 http_client = httpx.AsyncClient(timeout=60.0)
 
 
+async def llm_chat(user_id: str, message: str, instruction: str = "") -> str:
+    """Обертка для отправки запроса в chat-service"""
+    final_message = (
+        f"[SYSTEM INSTRUCTION: {instruction}]\n\n{message}"
+        if instruction
+        else message
+    )
+
+    try:
+        resp = await http_client.post(
+            f"{settings.chat_service_url}/api/v1/chat",
+            json={"user_id": user_id, "message": final_message},
+            timeout=60.0,
+        )
+
+        if resp.status_code == 200:
+            return resp.json().get("message")
+        return f"⚠️ Ошибка сервиса LLM: {resp.status_code}"
+    except Exception as e:
+        logger.error(f"LLM Chat error: {e}")
+        return "⚠️ Сервис временно недоступен"
+
+
 async def update_user_memory(user_id: str, text: str):
     """Фоновая задача для обновления памяти"""
     try:
@@ -29,9 +52,7 @@ def clean_code(text: str) -> str:
     """Очищает текст от md ```python ... ```"""
     text = text.strip()
     if text.startswith("```"):
-        # Убираем первую строку (```python)
         text = text.split("\n", 1)[1] if "\n" in text else ""
-        # Убираем последнюю строку (```)
         if text.endswith("```"):
             text = text[:-3]
     return text.strip()
@@ -41,16 +62,23 @@ def is_looks_like_code(text: str) -> bool:
     """
     Эвристика: проверяем, похоже ли это на Python код.
     """
-    keywords = ["def ", "class ", "import ", "return ", "print(", "if ", "for "]
-    # Слишком коротко, скорее всего не решение
+    keywords = [
+        "def ",
+        "class ",
+        "import ",
+        "return ",
+        "print(",
+        "if ",
+        "for ",
+        "while ",
+    ]
     if len(text) < 10:
         return False
 
-    # Содержит ключевые слова
-    if any(k in text for k in keywords):
-        return True
+    # Если это просто текст вопроса - False
+    if not any(k in text for k in keywords):
+        return False
 
-    # Попытка распарсить через AST
     try:
         ast.parse(text)
         return True
@@ -62,7 +90,6 @@ md = MarkdownIt("commonmark", {"html": True})
 
 
 def md_to_pdf_html(text: str) -> str:
-    """Конвертирует Markdown в HTML, подходящий для PDF"""
     return md.render(text)
 
 
@@ -83,19 +110,13 @@ def md_to_html(text: str) -> str:
     html = html.replace("<em>", "<i>").replace("</em>", "</i>")
 
     for h in range(1, 7):
-        open_tag = f"<h{h}>"
-        close_tag = f"</h{h}>"
-        html = html.replace(open_tag, "<b>").replace(close_tag, "</b>\n")
+        html = html.replace(f"<h{h}>", "<b>").replace(f"</h{h}>", "</b>\n")
 
     html = html.replace("<ul>", "").replace("</ul>", "\n")
     html = html.replace("<ol>", "").replace("</ol>", "\n")
     html = html.replace("<li>", "• ").replace("</li>", "\n")
-
     html = html.replace("<p>", "").replace("</p>", "\n")
-
-    html = (
-        html.replace("<br>", "\n").replace("<br/>", "\n").replace("<br />", "\n")
-    )
+    html = html.replace("<br>", "\n").replace("<br/>", "\n")
 
     for tag in ["section", "article", "header", "footer", "div"]:
         html = html.replace(f"<{tag}>", "").replace(f"</{tag}>", "")
@@ -104,9 +125,6 @@ def md_to_html(text: str) -> str:
 
 
 async def split_long_message(text: str, max_length: int = 4096) -> list[str]:
-    """
-    Разбивает длинное сообщение на части
-    """
     if len(text) <= max_length:
         return [text]
 
@@ -115,22 +133,18 @@ async def split_long_message(text: str, max_length: int = 4096) -> list[str]:
     paragraphs = text.split("\n\n")
 
     for paragraph in paragraphs:
-        # Если абзац + текущая часть превышают лимит, сохраняем текущую часть
         if len(current_chunk) + len(paragraph) + 2 > max_length:
             if current_chunk:
                 chunks.append(current_chunk)
             current_chunk = ""
 
-        # Если сам абзац слишком длинный, его нужно принудительно разбить
         while len(paragraph) > max_length:
             split_pos = paragraph.rfind("\n", 0, max_length)
             if split_pos == -1:
                 split_pos = max_length
-
             chunks.append(paragraph[:split_pos])
             paragraph = paragraph[split_pos:].lstrip()
 
-        # Добавляем абзац + остаток к текущей части
         if current_chunk:
             current_chunk += "\n\n" + paragraph
         else:
@@ -152,10 +166,6 @@ async def typing_loop(bot, chat_id: int, interval: float = 4.0):
 
 
 def with_typing(interval: float = 4.0):
-    """
-    Декоратор для установки и удержания статуса "печатает..."
-    """
-
     def decorator(func):
         @wraps(func)
         async def wrapper(

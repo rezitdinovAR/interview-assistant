@@ -1,6 +1,10 @@
 from executor import run_code
 from fastapi import FastAPI, HTTPException
-from leetcode import get_problem_by_slug, get_random_question, search_problems
+from leetcode import (
+    get_problem_by_slug,
+    get_problems_list,
+    get_random_question,
+)
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -23,6 +27,13 @@ class SlugRequest(BaseModel):
     slug: str
 
 
+class ListRequest(BaseModel):
+    limit: int = 10
+    skip: int = 0
+    difficulty: str = "EASY"
+    category: str = "algorithms"
+
+
 @app.post("/random-question")
 async def random_q(req: DifficultyRequest):
     try:
@@ -38,12 +49,6 @@ async def execute(req: ExecuteRequest):
     return result
 
 
-@app.post("/search")
-async def search_q(req: SearchRequest):
-    results = await search_problems(req.keyword)
-    return {"results": results}
-
-
 @app.post("/problem")
 async def get_problem(req: SlugRequest):
     try:
@@ -51,6 +56,20 @@ async def get_problem(req: SlugRequest):
         return data
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/list")
+async def list_problems(req: ListRequest):
+    try:
+        data = await get_problems_list(
+            category=req.category,
+            limit=req.limit,
+            skip=req.skip,
+            difficulty=req.difficulty,
+        )
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/health")

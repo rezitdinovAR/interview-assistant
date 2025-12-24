@@ -14,7 +14,7 @@ from app.handlers_menu import router as menu_router
 from app.handlers_profile import router as profile_router
 from app.middlewares import AccessMiddleware
 from app.redis_client import redis_client
-
+from app.handlers_voice import router as voice_router
 
 async def main():
     bot = Bot(
@@ -31,6 +31,7 @@ async def main():
     dp.include_router(profile_router)
     dp.include_router(interview_router)
     dp.include_router(leetcode_router)
+    dp.include_router(voice_router)
     dp.include_router(common_router)
     dp.include_router(chat_router)
 

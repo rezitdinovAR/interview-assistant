@@ -3,7 +3,6 @@ import json
 import re
 import uuid
 
-import httpx
 from aiogram import F, Router, types
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
@@ -16,6 +15,7 @@ from app.config import settings
 from app.redis_client import redis_client
 from app.templates import message_to_html
 from app.utils import (
+    http_client,
     md_to_html,
     md_to_pdf_html,
     split_long_message,
@@ -28,8 +28,6 @@ from weasyprint import HTML
 
 router = Router(name=__name__)
 
-http_client = httpx.AsyncClient(timeout=60.0)
-
 
 async def call_chat_service(endpoint: str, payload: dict) -> dict | None:
     try:
@@ -38,12 +36,8 @@ async def call_chat_service(endpoint: str, payload: dict) -> dict | None:
         )
         response.raise_for_status()
         return response.json()
-    except httpx.RequestError as e:
-        logger.error(f"Ошибка сети при вызове {endpoint}: {e}")
-    except httpx.HTTPStatusError as e:
-        logger.error(
-            f"Ошибка API {endpoint}: {e.response.status_code}, {e.response.text}"
-        )
+    except Exception as e:
+        logger.error(f"Ошибка API {endpoint}: {e}")
     return None
 
 

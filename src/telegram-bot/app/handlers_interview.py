@@ -1,17 +1,16 @@
 import json
 
-import httpx
 from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
-from app.config import settings
 from app.keyboards import (
     get_cancel_menu,
     get_deep_dive_keyboard,
+    get_main_menu,
     get_persona_keyboard,
 )
 from app.redis_client import redis_client
 from app.states import InterviewState
-from app.utils import update_user_memory
+from app.utils import llm_chat
 
 router = Router()
 
@@ -20,28 +19,6 @@ PERSONA_PROMPTS = {
     "nerd": "Ты - технический гик-сеньор. Тебя интересуют только глубокие детали, работа памяти, сложность алгоритмов и 'под капотом'. Будь дотошным.",
     "toxic": "Ты - очень строгий и токсичный тимлид. Ты не веришь в компетентность кандидата. Задавай каверзные вопросы, саркастично комментируй ошибки. Твоя цель - проверить стрессоустойчивость.",
 }
-
-
-async def llm_chat(user_id: str, message: str, instruction: str = "") -> str:
-    """Обертка для отправки запроса в chat-service"""
-    final_message = (
-        f"[SYSTEM INSTRUCTION: {instruction}]\n\n{message}"
-        if instruction
-        else message
-    )
-
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{settings.chat_service_url}/api/v1/chat",
-                json={"user_id": user_id, "message": final_message},
-                timeout=60.0,
-            )
-            if resp.status_code == 200:
-                return resp.json().get("message")
-            return "⚠️ Ошибка сервиса LLM"
-    except Exception:
-        return "⚠️ Сервис временно недоступен"
 
 
 @router.message(F.text == "🎤 Симуляция собеседования")
@@ -120,30 +97,76 @@ async def generate_plan(message: types.Message, state: FSMContext):
 @router.message(InterviewState.in_progress)
 async def process_answer(message: types.Message, state: FSMContext):
     if message.text == "❌ Выйти в меню":
+        await state.clear()
+        await message.answer(
+            "Собеседование прервано.", reply_markup=get_main_menu()
+        )
         return
 
     data = await state.get_data()
     plan = data["plan"]
     step = data["current_step"]
-    persona_key = data.get("persona", "friendly")
-
     current_q = plan[step]
-    user_answer = message.text
+    user_input = message.text
+
+    # --- КЛАССИФИКАЦИЯ НАМЕРЕНИЯ ---
+    classification_prompt = (
+        f"Ты — классификатор интентов в диалоге собеседования.\n"
+        f"Вопрос интервьюера: '{current_q}'\n"
+        f"Сообщение пользователя: '{user_input}'\n\n"
+        f"Определи, пытается ли пользователь ответить на вопрос (даже если неправильно) "
+        f"ИЛИ он задает встречный вопрос / просит помощи / говорит, что не знает.\n"
+        f'Верни JSON: {{"is_answer": true}} или {{"is_answer": false}}'
+    )
+
+    # Для классификации используем системный вызов
+    try:
+        class_resp = await llm_chat("system_classifier", classification_prompt)
+        # Очистка JSON от markdown
+        clean_json = class_resp.replace("```json", "").replace("```", "").strip()
+        intent = json.loads(clean_json)
+        is_answer = intent.get("is_answer", True)
+    except Exception:
+        # Если классификатор упал, считаем ответом
+        is_answer = True
+
+    # --- СЦЕНАРИЙ 1: ЭТО ВОПРОС / ПРОСЬБА ПОМОЩИ ---
+    if not is_answer:
+        await message.bot.send_chat_action(message.chat.id, "typing")
+
+        help_prompt = (
+            f"Мы на собеседовании. Я задал вопрос: '{current_q}'. "
+            f"Кандидат пишет: '{user_input}'. "
+            f"Ответь ему в роли {data.get('persona', 'friendly')} интервьюера. "
+            f"Можешь дать подсказку, объяснить термин или переформулировать вопрос. "
+            f"Не давай полный правильный ответ сразу, подтолкни к мыслям."
+        )
+
+        help_response = await llm_chat(
+            str(message.from_user.id),
+            help_prompt,
+            instruction=PERSONA_PROMPTS[data.get("persona", "friendly")],
+        )
+
+        await message.answer(help_response)
+        return
+
+    # --- СЦЕНАРИЙ 2: ЭТО ОТВЕТ НА ВОПРОС ---
 
     await message.bot.send_chat_action(message.chat.id, "typing")
 
     eval_prompt = (
-        f"Question: {current_q}\nUser Answer: {user_answer}\n"
-        f"Give feedback on the answer based on your persona. Be brief (2-3 sentences)."
+        f"Question: {current_q}\nUser Answer: {user_input}\n"
+        f"Give feedback on the answer based on your persona. Be brief."
     )
+
     feedback = await llm_chat(
         str(message.from_user.id),
         eval_prompt,
-        instruction=PERSONA_PROMPTS[persona_key],
+        instruction=PERSONA_PROMPTS[data.get("persona", "friendly")],
     )
 
     await redis_client.incr(f"stats:user:{message.from_user.id}:questions")
-
     await message.answer(feedback, reply_markup=get_deep_dive_keyboard())
 
     next_step = step + 1
@@ -154,16 +177,5 @@ async def process_answer(message: types.Message, state: FSMContext):
             parse_mode="HTML",
         )
     else:
-        await redis_client.incr(f"stats:user:{message.from_user.id}:interviews")
-
-        await update_user_memory(
-            str(message.from_user.id),
-            f"Пользователь прошел симуляцию интервью по теме '{data.get('topic', 'Unknown')}'. Стиль: {data.get('persona')}.",
-        )
-
-        await message.answer(
-            "🏁 <b>Собеседование завершено!</b>\nВы отлично держались.",
-            reply_markup=get_cancel_menu(),
-            parse_mode="HTML",
-        )
+        await message.answer("🏁 Собеседование завершено!")
         await state.clear()

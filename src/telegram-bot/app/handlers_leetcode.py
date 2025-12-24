@@ -3,27 +3,28 @@ import json
 
 import httpx
 from aiogram import F, Router, types
-from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
+from aiogram.types import InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.utils.markdown import hbold, hcode
 from app.config import settings
 from app.keyboards import (
     get_cancel_menu,
+    get_categories_keyboard,
     get_deep_dive_keyboard,
-    get_problem_search_keyboard,
-    get_resume_keyboard,
+    get_difficulty_keyboard,
+    get_main_menu,
+    get_problems_list_keyboard,
 )
 from app.redis_client import redis_client
 from app.states import LeetCodeState
-from app.utils import clean_code, is_looks_like_code, update_user_memory
+from app.utils import is_looks_like_code, llm_chat, update_user_memory
 
 router = Router()
 
-# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 
-
+# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (active problem) ---
 async def save_active_problem(user_id: str, problem_data: dict):
-    """Сохраняем состояние задачи, чтобы к ней можно было вернуться"""
     await redis_client.set(
         f"user:{user_id}:active_problem", json.dumps(problem_data)
     )
@@ -38,127 +39,135 @@ async def clear_active_problem(user_id: str):
     await redis_client.delete(f"user:{user_id}:active_problem")
 
 
-# --- ХЕНДЛЕРЫ ---
+# --- МЕНЮ LEETCODE ---
 
 
-@router.message(F.text == "🧠 LeetCode: Рандом")
-@router.message(Command("task"))
-async def cmd_task_start(message: types.Message, state: FSMContext):
+@router.message(F.text == "🧠 LeetCode Тренировка")
+async def leetcode_entry(message: types.Message, state: FSMContext):
+    """Точка входа: проверяем активную задачу или показываем категории"""
     user_id = str(message.from_user.id)
-
     active_problem = await get_active_problem(user_id)
 
     if active_problem:
+        text = f"У вас есть незаконченная задача: <b>{active_problem['problem_title']}</b>."
+        builder = InlineKeyboardBuilder()
+        builder.row(
+            InlineKeyboardButton(text="▶️ Продолжить", callback_data="task:resume")
+        )
+        builder.row(
+            InlineKeyboardButton(text="📂 Список задач", callback_data="lc:menu")
+        )
         await message.answer(
-            f"У вас есть незаконченная задача: <b>{active_problem['title']}</b>.\nХотите продолжить?",
-            reply_markup=get_resume_keyboard(),
-            parse_mode="HTML",
+            text, reply_markup=builder.as_markup(), parse_mode="HTML"
         )
-        return
-
-    await start_new_random_problem(message, state)
-
-
-@router.callback_query(F.data == "task:resume")
-async def resume_problem(callback: types.CallbackQuery, state: FSMContext):
-    user_id = str(callback.from_user.id)
-    problem = await get_active_problem(user_id)
-
-    if not problem:
-        await callback.message.edit_text(
-            "Не удалось восстановить задачу. Начинаем новую."
+    else:
+        await message.answer(
+            "Выберите категорию задач:", reply_markup=get_categories_keyboard()
         )
-        await start_new_random_problem(callback.message, state)
-        return
 
-    await state.update_data(**problem)
-    await state.set_state(LeetCodeState.solving_problem)
 
+@router.callback_query(F.data == "lc:menu")
+async def show_categories(callback: types.CallbackQuery):
+    """Показывает список категорий (Algorithms, Pandas...)"""
     await callback.message.edit_text(
-        f"🔄 Возвращаемся к задаче: <b>{problem['problem_title']}</b>",
-        parse_mode="HTML",
-    )
-    # Показываем условие снова
-    await callback.message.answer(
-        f"{hbold(problem['problem_title'])}\n\n"
-        f"Ссылка: {problem.get('problem_link', '')}\n\n"
-        f"Код:\n{hcode(problem['initial_code'])}",
-        reply_markup=get_cancel_menu(),
+        "Выберите категорию задач:", reply_markup=get_categories_keyboard()
     )
 
 
-@router.callback_query(F.data == "task:new")
-async def new_problem_callback(callback: types.CallbackQuery, state: FSMContext):
-    await callback.answer()
-    await start_new_random_problem(callback.message, state)
-
-
-async def start_new_random_problem(message: types.Message, state: FSMContext):
-    await message.answer("🔍 Ищу случайную задачу (Easy)...")
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{settings.leetcode_service_url}/random-question",
-                json={"difficulty": "EASY"},
-                timeout=15.0,
-            )
-            resp.raise_for_status()
-            problem = resp.json()
-
-        await setup_problem_state(message, state, problem)
-
-    except Exception as e:
-        await message.answer(f"Ошибка получения задачи: {e}")
-
-
-# --- ПОИСК ЗАДАЧ ---
-
-
-@router.message(F.text == "🔎 LeetCode: Поиск")
-async def cmd_search_start(message: types.Message, state: FSMContext):
-    await state.set_state(LeetCodeState.search)
-    await message.answer(
-        "Введите название задачи или тему (например: <i>Two Sum</i>, <i>Stack</i>).",
-        reply_markup=get_cancel_menu(),
+@router.callback_query(F.data.startswith("lc:cat:"))
+async def show_difficulty(callback: types.CallbackQuery):
+    """Показывает выбор сложности для категории"""
+    category = callback.data.split(":")[2]
+    await callback.message.edit_text(
+        f"Категория: <b>{category.capitalize()}</b>\nВыберите сложность:",
+        reply_markup=get_difficulty_keyboard(category),
         parse_mode="HTML",
     )
 
 
-@router.message(LeetCodeState.search)
-async def process_search(message: types.Message, state: FSMContext):
-    if message.text == "❌ Выйти в меню":
-        return
+@router.callback_query(F.data.startswith("lc:diff:"))
+async def init_list(callback: types.CallbackQuery):
+    """Инициализация списка (переход на первую страницу)"""
+    # lc:diff:algorithms:EASY
+    parts = callback.data.split(":")
+    category = parts[2]
+    difficulty = parts[3]
 
-    keyword = message.text
-    msg = await message.answer("🔎 Ищу...")
+    # Перенаправляем на логику списка с offset=0
+    # Просто вызываем ту же функцию, но формируем data вручную или вызываем напрямую
+    # Проще всего вызвать функцию отрисовки списка
+    await render_problem_list(
+        callback.message, category, difficulty, 0, is_edit=True
+    )
 
+
+@router.callback_query(F.data.startswith("lc:list:"))
+async def paginate_list(callback: types.CallbackQuery):
+    """Пагинация списка"""
+    # lc:list:algorithms:EASY:10
+    parts = callback.data.split(":")
+    category = parts[2]
+    difficulty = parts[3]
+    offset = int(parts[4])
+
+    await render_problem_list(
+        callback.message, category, difficulty, offset, is_edit=True
+    )
+
+
+async def render_problem_list(
+    message: types.Message,
+    category: str,
+    difficulty: str,
+    offset: int,
+    is_edit: bool = True,
+):
+    """Общая функция отрисовки списка"""
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{settings.leetcode_service_url}/search",
-                json={"keyword": keyword},
+                f"{settings.leetcode_service_url}/list",
+                json={
+                    "limit": 10,
+                    "skip": offset,
+                    "difficulty": difficulty,
+                    "category": category,
+                },
                 timeout=10.0,
             )
-            results = resp.json().get("results", [])
+            data = resp.json()
 
-        if not results:
-            await msg.edit_text("Ничего не найдено. Попробуйте другой запрос.")
-            return
+        questions = [q for q in data["questions"] if not q.get("paidOnly")]
+        total = data["total"]
 
-        await msg.edit_text(
-            f"Найдены задачи по запросу '{keyword}':",
-            reply_markup=get_problem_search_keyboard(results[:5]),  # Топ 5
+        text = f"📂 <b>{category.capitalize()}</b> | 📊 <b>{difficulty}</b>\nПоказано {offset}-{offset + len(questions)} из {total}"
+        kb = get_problems_list_keyboard(
+            questions, offset, total, category, difficulty
         )
 
+        if is_edit:
+            await message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+        else:
+            await message.answer(text, reply_markup=kb, parse_mode="HTML")
+
     except Exception as e:
-        await msg.edit_text(f"Ошибка поиска: {e}")
+        err_text = f"Ошибка загрузки списка: {e}"
+        if is_edit:
+            await message.edit_text(err_text)
+        else:
+            await message.answer(err_text)
+
+
+# --- ЗАПУСК ЗАДАЧИ ИЗ СПИСКА ---
 
 
 @router.callback_query(F.data.startswith("solve:"))
-async def start_searched_problem(callback: types.CallbackQuery, state: FSMContext):
+async def start_problem_from_list(
+    callback: types.CallbackQuery, state: FSMContext
+):
     slug = callback.data.split(":")[1]
     await callback.answer()
-    await callback.message.edit_text("Загружаю задачу...")
+    await callback.message.edit_text("⏳ Загружаю задачу...")
 
     try:
         async with httpx.AsyncClient() as client:
@@ -173,18 +182,41 @@ async def start_searched_problem(callback: types.CallbackQuery, state: FSMContex
         await setup_problem_state(callback.message, state, problem)
 
     except Exception as e:
-        await callback.message.answer(f"Не удалось загрузить задачу: {e}")
+        await callback.message.edit_text(f"Не удалось загрузить задачу: {e}")
 
 
-# --- ОБЩАЯ ЛОГИКА ЗАПУСКА ЗАДАЧИ ---
+# --- RESUME TASK ---
+
+
+@router.callback_query(F.data == "task:resume")
+async def resume_problem(callback: types.CallbackQuery, state: FSMContext):
+    user_id = str(callback.from_user.id)
+    problem = await get_active_problem(user_id)
+    if not problem:
+        await callback.message.edit_text("Не удалось восстановить задачу.")
+        # Возвращаем в меню категорий
+        await show_categories(callback)
+        return
+    await state.update_data(**problem)
+    await state.set_state(LeetCodeState.solving_problem)
+
+    await callback.message.edit_text(
+        f"🔄 Возвращаемся к задаче: <b>{problem['problem_title']}</b>",
+        parse_mode="HTML",
+    )
+    await callback.message.answer(
+        f"{hbold(problem['problem_title'])}\n\nСсылка: {problem.get('problem_link', '')}\n\nКод:\n{hcode(problem['initial_code'])}",
+        reply_markup=get_cancel_menu(),
+    )
+
+
+# --- ОБЩАЯ ЛОГИКА СТЕЙТА ---
 
 
 async def setup_problem_state(
     message: types.Message, state: FSMContext, problem: dict
 ):
-    """Инициализирует стейт, сохраняет в Redis и показывает задачу"""
     user_id = str(message.from_user.id)
-
     state_data = {
         "problem_title": problem["title"],
         "problem_slug": problem["slug"],
@@ -192,21 +224,18 @@ async def setup_problem_state(
         "initial_code": problem["initial_code"],
         "problem_link": problem["link"],
     }
-
     await state.update_data(**state_data)
     await state.set_state(LeetCodeState.solving_problem)
-
     await save_active_problem(user_id, state_data)
 
     text = (
-        f"{hbold(problem['title'])}\n\n"
-        f"Ссылка: {problem['link']}\n\n"
-        f"Отправьте решение (код функции) в ответ на это сообщение.\n"
-        f"Шаблон:\n{hcode(problem['initial_code'])}"
+        f"{hbold(problem['title'])}\n\nСсылка: {problem['link']}\n\n"
+        f"Отправьте решение (код функции) в ответ на это сообщение.\nШаблон:\n{hcode(problem['initial_code'])}"
     )
-    target_chat = message.chat.id
+    # Если вызываем из callback (message был edit), то нужно отправлять новое сообщение, а не редактировать
+    # Поэтому просто send_message всегда безопаснее для старта задачи
     await message.bot.send_message(
-        chat_id=target_chat, text=text, reply_markup=get_cancel_menu()
+        chat_id=message.chat.id, text=text, reply_markup=get_cancel_menu()
     )
 
 
@@ -216,46 +245,38 @@ async def setup_problem_state(
 @router.message(LeetCodeState.solving_problem)
 async def process_solution(message: types.Message, state: FSMContext):
     if message.text == "❌ Выйти в меню":
+        await message.answer("Выход в меню...", reply_markup=get_main_menu())
+        await state.clear()
         return
 
-    raw_text = message.text
-    user_code = clean_code(raw_text)
+    user_text = message.text or ""
     data = await state.get_data()
     problem_title = data.get("problem_title")
-    problem_slug = data.get("problem_slug")
 
-    if not is_looks_like_code(user_code):
+    # --- ЭВРИСТИКА: КОД ИЛИ ВОПРОС? ---
+    if not is_looks_like_code(user_text):
         await message.bot.send_chat_action(message.chat.id, "typing")
-
-        async with httpx.AsyncClient() as client:
-            prompt = f"User is solving LeetCode '{problem_title}'. Question: '{raw_text}'. Hint only."
-            resp = await client.post(
-                f"{settings.chat_service_url}/api/v1/chat",
-                json={"user_id": str(message.from_user.id), "message": prompt},
-                timeout=60.0,
-            )
-            answer = resp.json().get("message")
+        prompt = (
+            f"Пользователь решает задачу LeetCode: '{problem_title}'. "
+            f"Текущий контекст задачи: {data.get('problem_link')}. "
+            f"Вопрос пользователя: '{user_text}'. "
+            f"Дай подсказку или объясни тему, но НЕ пиши полное решение кода, если тебя прямо не попросили."
+        )
+        # ИСПРАВЛЕНО: используем llm_chat
+        answer = await llm_chat(str(message.from_user.id), prompt)
 
         await update_user_memory(
             str(message.from_user.id),
-            f"Пользователь задал вопрос по задаче '{problem_title}': {raw_text}. Ответ ассистента: {answer}",
+            f"Задал вопрос по задаче {problem_title}: {user_text}",
         )
-
-        await message.answer(answer)
+        await message.answer(
+            f"🤖 <b>Подсказка:</b>\n\n{answer}", parse_mode="HTML"
+        )
         return
 
     # Проверка кода
     problem_content = data.get("problem_content")
     msg = await message.answer("⏳ Проверяю решение...")
-
-    async def ask_llm_local(prompt):
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{settings.chat_service_url}/api/v1/chat",
-                json={"user_id": "system_test_gen", "message": prompt},
-                timeout=60.0,
-            )
-            return resp.json().get("message")
 
     llm_test_gen_prompt = (
         f"You are a QA engineer. Generate Python assertions for LeetCode problem '{problem_title}'.\n"
@@ -266,7 +287,8 @@ async def process_solution(message: types.Message, state: FSMContext):
     )
 
     try:
-        generated_tests = await ask_llm_local(llm_test_gen_prompt)
+        # ИСПРАВЛЕНО: используем llm_chat
+        generated_tests = await llm_chat("system_test_gen", llm_test_gen_prompt)
         generated_tests = generated_tests.replace("```python", "").replace(
             "```", ""
         )
@@ -274,25 +296,22 @@ async def process_solution(message: types.Message, state: FSMContext):
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 f"{settings.leetcode_service_url}/execute",
-                json={"code": user_code, "test_code": generated_tests},
+                json={"code": user_text, "test_code": generated_tests},
                 timeout=10.0,
             )
             exec_result = resp.json()
 
         if exec_result.get("success"):
             user_id = str(message.from_user.id)
-            # Счетчик задач
             await redis_client.incr(f"stats:user:{user_id}:problems")
-            # История решенных
-            await redis_client.sadd(f"history:user:{user_id}:solved", problem_slug)
-            # Удаляем из "активных", так как решена
-            await clear_active_problem(user_id)
-
-            await update_user_memory(
-                str(message.from_user.id),
-                f"Пользователь успешно решил задачу '{problem_title}' (тема: LeetCode Easy). Код был верным.",
+            await redis_client.sadd(
+                f"history:user:{user_id}:solved", data.get("problem_slug")
             )
-
+            await clear_active_problem(user_id)
+            await update_user_memory(
+                user_id,
+                f"Пользователь успешно решил задачу '{problem_title}'. Код был верным.",
+            )
             await msg.edit_text(
                 f"✅ {hbold('Решение принято!')}\n\nВсе тесты пройдены."
             )
@@ -315,24 +334,14 @@ async def process_solution(message: types.Message, state: FSMContext):
                 f"❌ {hbold(f'Ошибка выполнения: {html.escape(error_msg)}')}\n\nАнализирую..."
             )
 
-            # Анализ ошибки через LLM
-            analysis_prompt = f"Problem: {problem_title}\nCode:\n{user_code}\nError:\n{error_msg}\nExplain the error and give a hint."
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(
-                    f"{settings.chat_service_url}/api/v1/chat",
-                    json={
-                        "user_id": str(message.from_user.id),
-                        "message": analysis_prompt,
-                    },
-                    timeout=60.0,
-                )
-                hint = resp.json().get("message")
+            analysis_prompt = f"Problem: {problem_title}\nCode:\n{user_text}\nError:\n{error_msg}\nExplain the error and give a hint."
+            # ИСПРАВЛЕНО: используем llm_chat
+            hint = await llm_chat(str(message.from_user.id), analysis_prompt)
 
             await update_user_memory(
                 str(message.from_user.id),
-                f"Пользователь не смог решить задачу '{problem_title}'. Ошибка: {error_msg}. Возможно, есть пробелы в этой теме.",
+                f"Пользователь не смог решить задачу '{problem_title}'. Ошибка: {error_msg}.",
             )
-
             await message.answer(hint)
 
     except Exception as e:
