@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 import uuid
+from app.utils import track_latency
 
 from aiogram import F, Router, types
 from aiogram.exceptions import TelegramBadRequest
@@ -42,6 +43,7 @@ async def call_chat_service(endpoint: str, payload: dict) -> dict | None:
 
 
 @with_typing()
+@track_latency("chat")
 async def process_user_request(
     message: types.Message, user_text: str, state: FSMContext
 ):

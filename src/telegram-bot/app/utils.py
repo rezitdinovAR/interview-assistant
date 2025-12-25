@@ -1,6 +1,7 @@
 import ast
 import asyncio
 import re
+import time
 from functools import wraps
 
 import httpx
@@ -8,6 +9,7 @@ from aiogram.enums import ChatAction
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from app.config import settings
+from app.redis_client import redis_client
 from loguru import logger
 from markdown_it import MarkdownIt
 
@@ -182,3 +184,26 @@ def with_typing(interval: float = 4.0):
         return wrapper
 
     return decorator
+
+
+def track_latency(metric_name: str):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            start_time = time.perf_counter()
+            try:
+                return await func(*args, **kwargs)
+            finally:
+                execution_time = time.perf_counter() - start_time
+                asyncio.create_task(_save_metric(metric_name, execution_time))
+
+        return wrapper
+
+    return decorator
+
+
+async def _save_metric(name: str, value: float):
+    key = f"metrics:{name}"
+
+    await redis_client.lpush(key, value)
+    await redis_client.ltrim(key, 0, 99)

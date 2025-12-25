@@ -1,3 +1,4 @@
+import asyncio
 import time
 from typing import Any, Awaitable, Callable, Dict
 
@@ -6,6 +7,7 @@ from aiogram import BaseMiddleware, Bot
 from aiogram.types import Message
 from app.config import settings
 from app.redis_client import redis_client
+from app.utils import _save_metric
 
 
 class AccessMiddleware(BaseMiddleware):
@@ -95,6 +97,8 @@ class VoiceToTextMiddleware(BaseMiddleware):
 
         # Скачивание и транскрибация
         try:
+            start_voice = time.perf_counter()
+
             file_id = event.voice.file_id
             file = await bot.get_file(file_id)
             file_path = file.file_path
@@ -109,6 +113,10 @@ class VoiceToTextMiddleware(BaseMiddleware):
                 )
                 resp.raise_for_status()
                 transcribed_text = resp.json().get("text", "")
+
+            asyncio.create_task(
+                _save_metric("voice", time.perf_counter() - start_voice)
+            )
 
         except Exception as e:
             print(f"Middleware Transcribe Error: {e}")

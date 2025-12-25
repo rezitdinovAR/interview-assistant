@@ -1,6 +1,7 @@
 import asyncio
 import html
 import json
+import time
 
 import httpx
 from aiogram import F, Router, types
@@ -17,7 +18,13 @@ from app.keyboards import (
 )
 from app.redis_client import redis_client
 from app.states import LeetCodeState
-from app.utils import is_looks_like_code, llm_chat, typing_loop, update_user_memory
+from app.utils import (
+    _save_metric,
+    is_looks_like_code,
+    llm_chat,
+    typing_loop,
+    update_user_memory,
+)
 
 router = Router()
 
@@ -389,6 +396,8 @@ async def process_solution(message: types.Message, state: FSMContext):
             generated_tests.replace("```python", "").replace("```", "").strip()
         )
 
+        start_exec = time.perf_counter()
+
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 f"{settings.leetcode_service_url}/execute",
@@ -396,6 +405,10 @@ async def process_solution(message: types.Message, state: FSMContext):
                 timeout=10.0,
             )
             exec_result = resp.json()
+
+        asyncio.create_task(
+            _save_metric("code_exec", time.perf_counter() - start_exec)
+        )
 
         if exec_result.get("success"):
             user_id = str(message.from_user.id)

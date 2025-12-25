@@ -1,3 +1,4 @@
+import statistics
 import uuid
 
 from aiogram import Router, types
@@ -140,3 +141,41 @@ async def send_welcome_message(message: types.Message):
     )
 
     await message.answer(text, parse_mode="HTML", reply_markup=get_main_menu())
+
+
+@router.message(Command("metrics"))
+async def show_metrics(message: types.Message):
+    if message.from_user.id not in settings.get_admin_ids:
+        return
+
+    metrics_map = {
+        "metrics:chat": "💬 Chat Response",
+        "metrics:voice": "🎤 Voice Transcribe",
+        "metrics:code_exec": "⚙️ Code Execution",
+    }
+
+    report = ["📊 <b>Live Performance Metrics (Last 100 rq)</b>\n"]
+
+    for key, label in metrics_map.items():
+        # Получаем список значений из Redis
+        raw_values = await redis_client.lrange(key, 0, -1)
+
+        if not raw_values:
+            report.append(f"{label}: <i>No data</i>")
+            continue
+
+        # Конвертируем байты в float
+        values = [float(v) for v in raw_values]
+
+        avg_val = statistics.mean(values)
+        max_val = max(values)
+        min_val = min(values)
+
+        report.append(
+            f"<b>{label}:</b>\n"
+            f"  • Avg: <code>{avg_val:.3f}s</code>\n"
+            f"  • Min: <code>{min_val:.3f}s</code>\n"
+            f"  • Max: <code>{max_val:.3f}s</code>"
+        )
+
+    await message.answer("\n".join(report), parse_mode="HTML")
