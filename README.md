@@ -135,3 +135,28 @@ docker-compose -f src/docker-compose.RAG.yml up -d
 #  Запуск основных сервисов приложения
 docker-compose -f src/docker-compose.yml up -d
 ```
+
+### Метрики и Тестирование
+
+#### Результаты оценки RAG (RAGAS)
+Оценка произведена на выборке из 30 запросов. 
+*Подробные результаты доступны в файле:* [rag_llm_eval.json](evaluation_results/rag_llm_eval.json)
+
+| Metric | Score |
+|:---|:---|
+| **Faithfulness** | 0.5725 |
+| **Answer Relevancy** | 0.7888 |
+| **Context Precision** | 0.2501 |
+| **Context Recall** | 0.2782 |
+
+#### Live Performance Metrics (Last 100 requests)
+Средние показатели системы (с учетом локальных RAG моделей):
+
+*   **Chat Response:**
+    *   Avg: 51.214s
+    *   Min: 25.260s
+    *   Max: 60.708s
+*   **Voice Transcribe:**
+    *   Avg: 2.262s
+*   **Code Execution:**
+    *   Avg: 0.070s
