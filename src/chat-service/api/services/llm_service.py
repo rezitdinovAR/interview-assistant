@@ -266,7 +266,7 @@ class LLMGraphMemoryWithRAG:
         retrieved_ctx = result.get("retrieved_context")
 
         dataset_entry = {
-            "timestamp": datetime.datetime.now().isoformat(),
+            "timestamp": datetime.now().isoformat(),
             "user_id": user_id,
             "query": user_message,
             "context": retrieved_ctx if retrieved_ctx else "",
