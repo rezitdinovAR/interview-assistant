@@ -77,6 +77,8 @@ async def update_profile(
     except Exception as e:
         logger.error(f"Profile update error: {e}")
         return StatusResponse(status="Error", message=str(e))
+    
+    
 
 
 @router.get("/health")

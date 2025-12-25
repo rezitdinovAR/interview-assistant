@@ -1,8 +1,10 @@
 import statistics
 import uuid
 
+import httpx
 from aiogram import Router, types
 from aiogram.filters import Command
+from aiogram.types import BufferedInputFile
 from app.config import settings
 from app.keyboards import get_main_menu
 from app.redis_client import redis_client
@@ -179,3 +181,39 @@ async def show_metrics(message: types.Message):
         )
 
     await message.answer("\n".join(report), parse_mode="HTML")
+
+
+@router.message(Command("get_dataset"))
+async def get_dataset_file(message: types.Message):
+    if message.from_user.id not in settings.get_admin_ids:
+        return
+
+    status_msg = await message.answer("⏳ Скачиваю датасет из Chat Service...")
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{settings.chat_service_url}/api/v1/dataset/download"
+            )
+
+            if resp.status_code == 404:
+                await status_msg.edit_text("📂 Датасет пока пуст.")
+                return
+
+            if resp.status_code != 200:
+                await status_msg.edit_text(f"Ошибка API: {resp.status_code}")
+                return
+
+            file_bytes = resp.content
+
+            # Отправляем файл
+            await message.answer_document(
+                document=BufferedInputFile(
+                    file_bytes, filename="rag_dataset.jsonl"
+                ),
+                caption="📊 Актуальный датасет запросов и контекста",
+            )
+            await status_msg.delete()
+
+    except Exception as e:
+        await status_msg.edit_text(f"Ошибка: {e}")

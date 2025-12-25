@@ -1,6 +1,10 @@
+import asyncio
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Literal, TypedDict
 
+import aiofiles
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.redis import AsyncRedisSaver
@@ -249,14 +253,30 @@ class LLMGraphMemoryWithRAG:
         )
 
         ai_message = result["messages"][-1]
+        response_text = ""
         if isinstance(ai_message.content, list):
-            return "".join(
+            response_text = "".join(
                 block.get("text", "")
                 for block in ai_message.content
                 if block.get("type") == "text"
             )
         else:
-            return ai_message.content
+            response_text = ai_message.content
+
+        retrieved_ctx = result.get("retrieved_context")
+
+        dataset_entry = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "user_id": user_id,
+            "query": user_message,
+            "context": retrieved_ctx if retrieved_ctx else "",
+            "answer": response_text,
+            "is_rag_used": bool(retrieved_ctx),
+        }
+
+        asyncio.create_task(self._save_to_dataset(dataset_entry))
+
+        return response_text
 
     async def reset_context(self, user_id: str) -> None:
         if self.redis_client:
@@ -317,6 +337,16 @@ class LLMGraphMemoryWithRAG:
         except Exception as e:
             print(f"Error updating profile: {e}")
             return current_profile
+
+    async def _save_to_dataset(self, entry: dict):
+        """Асинхронная запись в файл через aiofiles"""
+        try:
+            file_path = "rag_dataset.jsonl"
+            # async with открывает файл в отдельном потоке
+            async with aiofiles.open(file_path, mode="a", encoding="utf-8") as f:
+                await f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception as e:
+            print(f"Error writing to dataset: {e}")
 
     async def close(self) -> None:
         await self.db_client.close()

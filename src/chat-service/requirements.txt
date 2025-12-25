@@ -9,3 +9,4 @@ langchain-openai
 langgraph
 langgraph-checkpoint-redis
 redis
+aiofiles
