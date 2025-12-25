@@ -1,7 +1,10 @@
 import logging
+import os
 import traceback
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 
 from api.core.dependencies import get_llm
 from api.schemas import (
@@ -77,8 +80,20 @@ async def update_profile(
     except Exception as e:
         logger.error(f"Profile update error: {e}")
         return StatusResponse(status="Error", message=str(e))
-    
-    
+
+
+@router.get("/dataset/download")
+async def download_dataset():
+    """Скачать датасет RAG"""
+    file_path = "rag_dataset.jsonl"
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Dataset is empty")
+
+    return FileResponse(
+        path=file_path,
+        filename=f"rag_dataset_{datetime.now().strftime('%Y%m%d')}.jsonl",
+        media_type="application/json",
+    )
 
 
 @router.get("/health")

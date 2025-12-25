@@ -197,7 +197,7 @@ async def get_dataset_file(message: types.Message):
             )
 
             if resp.status_code == 404:
-                await status_msg.edit_text("📂 Датасет пока пуст.")
+                await status_msg.edit_text("📂 Датасет пока пуст")
                 return
 
             if resp.status_code != 200:
