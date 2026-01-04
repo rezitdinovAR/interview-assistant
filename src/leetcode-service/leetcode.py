@@ -2,8 +2,15 @@ import random
 
 import httpx
 from loguru import logger
+from config import settings
 
 LEETCODE_URL = "https://leetcode.com/graphql"
+PROXY_URL = settings.proxy_url
+
+proxies = {
+    "http://": PROXY_URL,
+    "https://": PROXY_URL,
+}
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -47,7 +54,7 @@ async def get_random_question(difficulty: str = "EASY"):
         },
     }
 
-    async with httpx.AsyncClient(timeout=20.0) as client:
+    async with httpx.AsyncClient(timeout=20.0, proxies=proxies) as client:
         try:
             logger.info(f"Fetching list: difficulty={difficulty}, skip={skip}")
             resp_list = await client.post(
@@ -142,7 +149,7 @@ async def get_random_question(difficulty: str = "EASY"):
 
 
 async def get_problem_by_slug(title_slug: str):
-    async with httpx.AsyncClient(timeout=15.0) as client:
+    async with httpx.AsyncClient(timeout=15.0, proxies=proxies) as client:
         content_query = """
         query questionContent($titleSlug: String!) {
             question(titleSlug: $titleSlug) {
@@ -229,7 +236,7 @@ async def get_problems_list(
         },
     }
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with httpx.AsyncClient(timeout=10.0, proxies=proxies) as client:
         resp = await client.post(
             LEETCODE_URL,
             json={"query": query, "variables": variables},
