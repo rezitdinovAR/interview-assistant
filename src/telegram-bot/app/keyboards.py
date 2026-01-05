@@ -59,9 +59,18 @@ def get_difficulty_keyboard(category: str):
     diffs = ["EASY", "MEDIUM", "HARD"]
 
     for d in diffs:
+        if d == "EASY":
+            d_display = f"😉 {d}"
+        elif d == "MEDIUM":
+            d_display = f"😮 {d}"
+        elif d == "HARD":
+            d_display = f"😈 {d}"
+        else:
+            d_display = f"❓ {d}"
+
         builder.row(
             InlineKeyboardButton(
-                text=f"📊 {d}", callback_data=f"lc:diff:{category}:{d}"
+                text=d_display, callback_data=f"lc:diff:{category}:{d}"
             )
         )
 
@@ -78,7 +87,7 @@ def get_problems_list_keyboard(
 
     # Кнопки задач
     for p in problems:
-        icon = "🔒" if p.get("paidOnly") else "🔓"
+        icon = "(Premium)" if p.get("paidOnly") else ""
         title = p["title"][:30] + "..." if len(p["title"]) > 30 else p["title"]
         text = f"{icon} {title}"
         builder.row(

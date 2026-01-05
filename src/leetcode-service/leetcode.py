@@ -1,16 +1,11 @@
 import random
 
 import httpx
-from loguru import logger
 from config import settings
+from loguru import logger
 
 LEETCODE_URL = "https://leetcode.com/graphql"
-PROXY_URL = settings.proxy_url
-
-proxies = {
-    "http://": PROXY_URL,
-    "https://": PROXY_URL,
-}
+PROXY_URL = settings.proxy_url if settings.proxy_url else None
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -54,7 +49,7 @@ async def get_random_question(difficulty: str = "EASY"):
         },
     }
 
-    async with httpx.AsyncClient(timeout=20.0, proxies=proxies) as client:
+    async with httpx.AsyncClient(timeout=20.0, proxy=PROXY_URL) as client:
         try:
             logger.info(f"Fetching list: difficulty={difficulty}, skip={skip}")
             resp_list = await client.post(
@@ -149,7 +144,7 @@ async def get_random_question(difficulty: str = "EASY"):
 
 
 async def get_problem_by_slug(title_slug: str):
-    async with httpx.AsyncClient(timeout=15.0, proxies=proxies) as client:
+    async with httpx.AsyncClient(timeout=15.0, proxy=PROXY_URL) as client:
         content_query = """
         query questionContent($titleSlug: String!) {
             question(titleSlug: $titleSlug) {
@@ -236,27 +231,37 @@ async def get_problems_list(
         },
     }
 
-    async with httpx.AsyncClient(timeout=10.0, proxies=proxies) as client:
-        resp = await client.post(
-            LEETCODE_URL,
-            json={"query": query, "variables": variables},
-            headers=HEADERS,
-        )
-        if resp.status_code != 200:
-            logger.error(
-                f"LeetCode List API Error: {resp.status_code} {resp.text}"
+    try:
+        async with httpx.AsyncClient(timeout=10.0, proxy=PROXY_URL) as client:
+            resp = await client.post(
+                LEETCODE_URL,
+                json={"query": query, "variables": variables},
+                headers=HEADERS,
             )
-            resp.raise_for_status()
+            if resp.status_code != 200:
+                logger.error(
+                    f"LeetCode List API Error: {resp.status_code} {resp.text}"
+                )
+                resp.raise_for_status()
 
-        data = resp.json()
+            data = resp.json()
 
-        if "errors" in data:
-            logger.error(f"GraphQL Error: {data['errors']}")
-            raise Exception(
-                f"LeetCode API Error: {data['errors'][0].get('message', 'Unknown error')}"
-            )
+            if "errors" in data:
+                logger.error(f"GraphQL Error: {data['errors']}")
+                raise Exception(
+                    f"LeetCode API Error: {data['errors'][0].get('message', 'Unknown error')}"
+                )
 
-        if "data" not in data or not data["data"]:
-            return {"total": 0, "questions": []}
+            if (
+                "data" not in data
+                or not data["data"]
+                or not data["data"].get("problemsetQuestionListV2")
+            ):
+                logger.warning(f"Empty or null data from LeetCode: {data}")
+                return {"total": 0, "questions": []}
 
-        return data["data"]["problemsetQuestionListV2"]
+            return data["data"]["problemsetQuestionListV2"]
+
+    except Exception as e:
+        logger.exception("Error in get_problems_list")
+        raise e

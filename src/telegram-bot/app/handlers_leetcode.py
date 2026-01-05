@@ -164,7 +164,19 @@ async def render_problem_list(
                 },
                 timeout=10.0,
             )
+            if resp.status_code != 200:
+                try:
+                    err_detail = resp.json().get("detail", resp.text)
+                except:
+                    err_detail = resp.text
+                raise Exception(
+                    f"Service error ({resp.status_code}): {err_detail}"
+                )
+
             data = resp.json()
+
+        if not data or "questions" not in data:
+            raise Exception("Некорректный формат ответа от сервиса задач")
 
         questions = [q for q in data["questions"] if not q.get("paidOnly")]
         total = data["total"]
