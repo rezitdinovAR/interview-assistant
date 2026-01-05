@@ -95,7 +95,7 @@ async def get_random_question(difficulty: str = "EASY"):
             title_slug = chosen_q["titleSlug"]
             title = chosen_q["title"]
 
-            logger.info(f"🎲 Selected: {title} ({title_slug})")
+            logger.info(f"Selected: {title} ({title_slug})")
 
             content_query = """
             query questionContent($titleSlug: String!) {

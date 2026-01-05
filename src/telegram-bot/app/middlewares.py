@@ -10,6 +10,41 @@ from app.redis_client import redis_client
 from app.utils import _save_metric
 
 
+class UXBlockerMiddleware(BaseMiddleware):
+    """
+    Защита от спама - блокирует повторные запросы пока обрабатывается текущий
+    """
+
+    async def __call__(
+        self,
+        handler: Callable[[Any, Dict[str, Any]], Awaitable[Any]],
+        event: Any,
+        data: Dict[str, Any],
+    ) -> Any:
+        if not hasattr(event, "from_user"):
+            return await handler(event, data)
+
+        user_id = event.from_user.id
+        lock_key = f"active_request:{user_id}"
+
+        if await redis_client.get(lock_key):
+            if isinstance(event, Message):
+                await event.answer(
+                    "⏳ Подожди, я еще обрабатываю твой прошлый запрос..."
+                )
+            return
+
+        if isinstance(event, Message) and event.text == "❌ Выйти в меню":
+            return await handler(event, data)
+
+        # Ставим блок на 60 секунд на случай зависания LLM
+        await redis_client.set(lock_key, "1", ex=60)
+        try:
+            return await handler(event, data)
+        finally:
+            await redis_client.delete(lock_key)
+
+
 class AccessMiddleware(BaseMiddleware):
     async def __call__(
         self,

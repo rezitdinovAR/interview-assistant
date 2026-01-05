@@ -12,7 +12,7 @@ from app.handlers_interview import router as interview_router
 from app.handlers_leetcode import router as leetcode_router
 from app.handlers_menu import router as menu_router
 from app.handlers_profile import router as profile_router
-from app.middlewares import AccessMiddleware, VoiceToTextMiddleware
+from app.middlewares import AccessMiddleware, UXBlockerMiddleware, VoiceToTextMiddleware
 from app.redis_client import redis_client
 from loguru import logger
 
@@ -25,6 +25,8 @@ async def main():
     storage = RedisStorage(redis_client)
     dp = Dispatcher(storage=storage)
 
+    dp.message.outer_middleware(UXBlockerMiddleware())
+    dp.callback_query.outer_middleware(UXBlockerMiddleware())
     dp.message.outer_middleware(AccessMiddleware())
     dp.message.outer_middleware(VoiceToTextMiddleware())
 
